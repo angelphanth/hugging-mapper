@@ -4,7 +4,7 @@ from importlib import metadata
 
 __version__ = metadata.version("hugger")
 
-from .mapper import HuggingMapper, NodeMapper
+#from .mapper import HuggingMapper, NodeMapper
 
 # The __all__ variable is a list of variables which are imported
 # when a user does "from example import *"

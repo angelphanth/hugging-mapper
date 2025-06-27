@@ -33,3 +33,5 @@ python:
       path: .
       extra_requirements:
         - docs
+    - method: pip
+      requirements: requirements.txt

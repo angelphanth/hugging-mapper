@@ -42,7 +42,6 @@ docs = [
   "ipywidgets",
   "sphinx-new-tab-link!=0.2.2",
   "jupytext",
-  "pandas"
 ]
 # local development options
 dev = ["black", "ruff", "pytest", "ipykernel", "openpyxl"]
