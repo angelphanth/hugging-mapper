@@ -1,4 +1,4 @@
-# Python Package Documentation
+# `hugging-mapper` Documentation
 
 ```{include} ../README.md
 :start-line: 0
@@ -6,28 +6,19 @@
 :relative-images:
 ```
 
-<!-- hidden toc trees for sidebar -->
-
 ```{toctree}
-:maxdepth: 2
 :caption: "Tutorials"
-:hidden: true
-
 tutorial/tutorial
 ```
 
 ```{toctree}
-:maxdepth: 2
 :caption: "Reference"
-:hidden: true
-
-reference/python_package
+reference/hugger
+reference/hugger.mapper
 ```
 
 ```{toctree}
-:maxdepth: 2
 :caption: "Technical notes"
-:hidden: true
 
 README
 ```

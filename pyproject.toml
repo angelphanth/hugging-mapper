@@ -1,11 +1,10 @@
 # ref: https://setuptools.pypa.io/en/stable/userguide/pyproject_config.html
 [project]
 authors = [
-  { name = "Jakob Nybo Nissen", email = "jakobnybonissen@gmail.com" },
-  { name = "Henry Webel", email = "henry.webel@sund.ku.dk" },
+  { name = "Angel L. P.", email = "59593766+angelphanth@users.noreply.github.com" },
 ]
-description = "A small example package"
-name = "python_package"
+description = "A lightweight python tool for effortless text similarity scoring using Hugging Face models"
+name = "hugger"
 # This means: Load the version from the package itself.
 # See the section below: [tools.setuptools.dynamic]
 dynamic = ["version"]
@@ -17,17 +16,21 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
 ]
+
+[tool.setuptools.packages.find]
+include = ["hugger*"]
+
 # # add dependencies here: (use one of the two)
 # dependencies = ["numpy", "pandas", "scipy", "matplotlib", "seaborn"]
 # use requirements.txt instead of pyproject.toml for dependencies
 # https://stackoverflow.com/a/73600610/9684872
-# [tool.setuptools.dynamic]
-# dependencies = {file = ["requirements.txt"]}
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
 
 
 [project.urls]
-"Bug Tracker" = "https://github.com/RasmussenLab/python_package/issues"
-"Homepage" = "https://github.com/RasmussenLab/python_package"
+"Bug Tracker" = "https://github.com/angelphanth/hugger/issues"
+"Homepage" = "https://github.com/angelphanth/hugger"
 
 [project.optional-dependencies]
 # Optional dependencies to locally build the documentation, also used for 
@@ -41,7 +44,7 @@ docs = [
   "jupytext",
 ]
 # local development options
-dev = ["black", "ruff", "pytest"]
+dev = ["black", "ruff", "pytest", "ipykernel", "openpyxl"]
 
 # Configure the Ruff linter: Ignore error number 501
 [tool.ruff]
