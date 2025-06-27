@@ -261,7 +261,66 @@ class HuggingMapper:
         # for cache, hidden
         self._tokenizer = None
         self._model = None
-        self._input_text_embedding = {}
+
+    @property
+    def tokenizer_kwargs(self) -> dict:
+        """
+        Returns the tokenizer keyword arguments used for tokenization.
+
+        Returns
+        -------
+        dict
+            The tokenizer keyword arguments.
+        """
+        return self._tokenizer_kwargs
+    
+    @tokenizer_kwargs.setter
+    def tokenizer_kwargs(self, value: dict):
+        """
+        Sets the tokenizer keyword arguments used for tokenization.
+
+        Parameters
+        ----------
+        value : dict
+            The tokenizer keyword arguments to set.
+        """
+        if not isinstance(value, dict):
+            raise TypeError(f"tokenizer_kwargs must be a dict: {type(value)}")
+        self._tokenizer_kwargs = value
+
+    @property
+    def pooling(self) -> str:
+        """
+        Returns the pooling method used for generating embeddings.
+
+        Returns
+        -------
+        str
+            The pooling method.
+        """
+        return self._pooling
+    
+    @pooling.setter
+    def pooling(self, value: str):
+        """
+        Sets the pooling method used for generating embeddings.
+
+        Parameters
+        ----------
+        value : str
+            The pooling method to set. Must be one of 'mean_pooling' or 'attention_pooling'.
+        
+        Raises
+        ------
+        ValueError
+            If the provided pooling method is not recognized.
+        """
+        if value not in ["mean_pooling", "attention_pooling"]:
+            raise ValueError(
+                f"pooling must be 'mean_pooling' or 'attention_pooling': {value}"
+            )
+        self._pooling = value
+
 
     # Helper methods
     def __load_tokenizer(self) -> AutoTokenizer:
@@ -312,23 +371,17 @@ class HuggingMapper:
         tokenizer = self.__load_tokenizer()
         model = self.__load_model()
 
-        # check cache
-        if text_input in self._input_text_embedding:
-            # return cached embedding
-            return self._input_text_embedding[text_input]
-        else:
-            # tokenize the input text
-            tokenized_input = tokenizer(text_input, **self.tokenizer_kwargs)
-        
-            # gen embedding
-            embedding = get_embeddings(
-                model, 
-                tokenized_input, 
-                pooling_function=map_pooling(self.pooling)
-            )
-            # add to cache
-            self._input_text_embedding[text_input] = embedding
-            return embedding
+        # tokenize the input text
+        tokenized_input = tokenizer(text_input, **self.tokenizer_kwargs)
+    
+        # gen embedding
+        embedding = get_embeddings(
+            model, 
+            tokenized_input, 
+            pooling_function=map_pooling(self.pooling)
+        )
+
+        return embedding
 
 
 class NodeMapper:
