@@ -1,4 +1,4 @@
-# `hugging-mapper` Documentation
+# hugging-mapper Documentation
 
 ```{include} ../README.md
 :start-line: 0
@@ -7,20 +7,18 @@
 ```
 
 ```{toctree}
+:maxdepth: 2
 :caption: "Tutorials"
-tutorial/tutorial
+
+tutorial/huggingmapper-tutorial
+tutorial/nodemapper-tutorial
 ```
 
 ```{toctree}
+:maxdepth: 2
 :caption: "Reference"
+
 reference/hugger
-reference/hugger.mapper
-```
-
-```{toctree}
-:caption: "Technical notes"
-
-README
 ```
 
 ## Indices and tables
