@@ -13,6 +13,7 @@ import torch.nn.functional as F
 def map_pooling(pooling:str):
     """
     Maps a string representing the pooling type to the corresponding pooling function.
+
     Parameters
     ----------
     pooling : str
@@ -81,12 +82,6 @@ def mean_pooling(
     -------
     torch.Tensor
         A tensor of shape (batch_size, embedding_dim) containing the mean pooled embeddings for each sentence.
-
-    Notes
-    -----
-    This function ensures that only the embeddings of valid (non-masked) tokens are averaged.
-    If a sentence contains only masked tokens, the denominator is clamped to a small value (1e-9)
-    to avoid division by zero.    
     """
     token_embeddings = model_output[
         0
@@ -164,13 +159,12 @@ def get_tokens(
     AssertionError
         If `input` is not a list of strings or if `tokenizer_kwargs` is not a dictionary.
 
-    Examples
+    Example
     --------
     >>> from transformers import AutoTokenizer
     >>> tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
-    >>> sentences = ["Hello world!", "How are you?"]
+    >>> sentences = ["dogs are happy", "cats are cute"]
     >>> encoded = get_tokens(tokenizer, sentences)
-    >>> print(encoded['input_ids'])
     """
 
     # PRECONDITION CHECKS
@@ -218,10 +212,15 @@ def get_embeddings(
     AssertionError
         If `encoded_input` is not an instance of `transformers.BatchEncoding`.
 
-    Notes
-    -----
-    - The function disables gradient computation for efficiency.
-    - The output embeddings are L2-normalized along dimension 1.
+    Example
+    --------
+    >>> from transformers import AutoTokenizer, AutoModel
+    >>> huggingface_model_name = 'bert-base-uncased'
+    >>> tokenizer = AutoTokenizer.from_pretrained(huggingface_model_name)
+    >>> model = AutoModel.from_pretrained(huggingface_model_name)
+    >>> sentences = ["dogs are happy", "cats are cute"]
+    >>> encoded = get_tokens(tokenizer, sentences)
+    >>> embeddings = get_embeddings(model, encoded)
     """
 
     # PRECONDITION CHECKS
@@ -242,6 +241,39 @@ def get_embeddings(
 
 
 class HuggingMapper:
+    """
+    A class for mapping text to embeddings using a Hugging Face model.
+    This class provides methods to load a pre-trained model and tokenizer, embed text,
+    and configure pooling methods for generating embeddings.
+
+    Parameters
+    ----------
+    model_name : str, optional
+        The name of the pre-trained model to be used for generating embeddings (default is "cambridgeltl/SapBERT-from-PubMedBERT-fulltext").
+    tokenizer_kwargs : dict, optional
+        Additional keyword arguments to be passed to the tokenizer (default is 
+        `{'padding': True, 'truncation': True, 'return_tensors': 'pt', 'max_length': 512}`).
+    pooling : str, optional
+        The pooling method to be used for generating embeddings (default is "mean_pooling").
+
+    Attributes
+    ----------
+    model_name : str
+        The name of the pre-trained model.
+    tokenizer_kwargs : dict
+        The keyword arguments used for tokenization.
+    pooling : str
+        The pooling method used for generating embeddings.
+    tokenizer : transformers.AutoTokenizer
+        The pre-trained tokenizer instance.
+    model : transformers.AutoModel
+        The pre-trained model instance.
+
+    Methods
+    -------
+    embed_text(text_input: str) -> torch.Tensor
+        Embeds a given text using the pre-trained model and pooling function.
+    """
 
     def __init__(
             self, 
@@ -258,9 +290,12 @@ class HuggingMapper:
         self.model_name = model_name
         self.tokenizer_kwargs = tokenizer_kwargs
         self.pooling = pooling
-        # for cache, hidden
-        self._tokenizer = None
-        self._model = None
+
+        # load tokenizer and model
+        print(f"Loading tokenizer for model: {self.model_name}")
+        self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        print(f"Loading model: {self.model_name}")
+        self._model = AutoModel.from_pretrained(self.model_name)
 
     @property
     def tokenizer_kwargs(self) -> dict:
@@ -321,7 +356,7 @@ class HuggingMapper:
             )
         self._pooling = value
 
-    # immutable properties
+    # immutable class properties
     @property
     def tokenizer(self) -> AutoTokenizer:
         """
@@ -332,7 +367,7 @@ class HuggingMapper:
         AutoTokenizer
             The loaded tokenizer instance.
         """
-        return self.__load_tokenizer()
+        return self._tokenizer
 
     @property
     def model(self) -> AutoModel:
@@ -344,39 +379,7 @@ class HuggingMapper:
         AutoModel
             The loaded model instance.
         """
-        return self.__load_model()
-
-
-    # Helper methods
-    def __load_tokenizer(self) -> AutoTokenizer:
-        """
-        Loads the tokenizer for the specified model.
-
-        Returns
-        -------
-        AutoTokenizer
-            The loaded tokenizer instance.
-        """
-        if self._tokenizer is None:
-            print(f"Loading tokenizer for model: {self.model_name}")
-            self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        return self._tokenizer
-    
-
-    def __load_model(self) -> AutoModel:
-        """
-        Loads the model for the specified model name.
-
-        Returns
-        -------
-        AutoModel
-            The loaded model instance.
-        """
-        if self._model is None:
-            print(f"Loading model: {self.model_name}")
-            self._model = AutoModel.from_pretrained(self.model_name)
         return self._model
-    
 
     def embed_text(self, text_input: str) -> torch.Tensor:
         """
@@ -392,16 +395,13 @@ class HuggingMapper:
         torch.Tensor
             The normalized embedding of the input text.
         """
-        # get tokenizer and model
-        tokenizer = self.__load_tokenizer()
-        model = self.__load_model()
 
         # tokenize the input text
-        tokenized_input = tokenizer(text_input, **self.tokenizer_kwargs)
+        tokenized_input = self._tokenizer(text_input, **self.tokenizer_kwargs)
     
         # gen embedding
         embedding = get_embeddings(
-            model, 
+            self._model, 
             tokenized_input, 
             pooling_function=map_pooling(self.pooling)
         )
@@ -409,8 +409,48 @@ class HuggingMapper:
         return embedding
 
 
-class NodeMapper:
-
+class NodeMapper(HuggingMapper):
+    """
+    A class for mapping nodes to their corresponding text embeddings using a Hugging Face model.
+    This class extends the HuggingMapper class to handle a DataFrame containing node IDs and their associated text.
+    It provides methods to generate embeddings for each node and find similar nodes based on a given input text.
+    
+    Parameters
+    ----------
+    df : pd.DataFrame
+        A DataFrame containing the node IDs and their corresponding text.
+    text_col : str
+        The name of the column in the DataFrame that contains the text to be embedded.
+    id_col : str, optional
+        The name of the column in the DataFrame that contains the node IDs (default is "id").
+    model_name : str, optional
+        The name of the pre-trained model to be used for generating embeddings (default is "cambridgeltl/SapBERT-from-PubMedBERT-fulltext").
+    tokenizer_kwargs : dict, optional
+        Additional keyword arguments to be passed to the tokenizer (default is 
+        `{'padding': True, 'truncation': True, 'return_tensors': 'pt', 'max_length': 512}`).
+    pooling : str, optional
+        The pooling method to be used for generating embeddings (default is "mean_pooling").
+    
+    Attributes
+    ----------
+    df : pd.DataFrame
+        The DataFrame containing the node IDs and their corresponding text.
+    text_col : str
+        The name of the column in the DataFrame that contains the text to be embedded.
+    id_col : str
+        The name of the column in the DataFrame that contains the node IDs.
+    mapping : dict
+        A dictionary mapping node IDs to their corresponding text.
+    mapping_embeddings : dict
+        A dictionary mapping node IDs to their corresponding embeddings.
+    
+    Methods
+    -------
+    get_similar(input_text: str, threshold: float = 0.8, metric: str = "cosine") -> dict
+        Finds similar items in the mapping based on a similarity threshold.
+    get_match(input_text: str, threshold: float = 0.8, metric: str = "cosine") -> tuple
+        Finds the best match for the input text from the mapping based on a similarity threshold.
+    """
     def __init__(
             self, 
             df: pd.DataFrame, 
@@ -425,52 +465,47 @@ class NodeMapper:
             ),   
             pooling:str = "mean_pooling",         
         ):
+        # initialize the parent class
+        super().__init__(
+            model_name,
+            tokenizer_kwargs,
+            pooling,
+        )
         # attributes
         self.df = df
         self.text_col = text_col
         self.id_col = id_col
-        self.model_name = model_name
-        self.tokenizer_kwargs = tokenizer_kwargs
-        self.pooling = pooling
-        # for cache, hidden
-        self._tokenizer = None
-        self._model = None
-        self._input_text_embedding = {}
-        # for cache not hidden
-        self.mapping = self.__get_mapping()
-        self.mapping_embeddings = self.__embed_mapping()
+        # for cache, not hidden
+        self._mapping = self.__get_mapping()
+        print(f"Generating embeddings for {len(self.mapping)} nodes ...")
+        self._mapping_embeddings = self.__embed_mapping()
+
+    @property
+    def mapping(self) -> dict:
+        """
+        Returns the mapping of node IDs to their corresponding text.
+
+        Returns
+        -------
+        dict
+            A dictionary where keys are node IDs and values are the corresponding text.
+        """
+        return self._mapping
+    
+    @property
+    def mapping_embeddings(self) -> dict:
+        """
+        Returns the mapping of node IDs to their corresponding embeddings.
+
+        Returns
+        -------
+        dict
+            A dictionary where keys are node IDs and values are the corresponding embeddings.
+        """
+        return self._mapping_embeddings
+
 
     # Helper methods
-    def __load_tokenizer(self) -> AutoTokenizer:
-        """
-        Loads the tokenizer for the specified model.
-
-        Returns
-        -------
-        AutoTokenizer
-            The loaded tokenizer instance.
-        """
-        if self._tokenizer is None:
-            print(f"Loading tokenizer for model: {self.model_name}")
-            self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        return self._tokenizer
-    
-
-    def __load_model(self) -> AutoModel:
-        """
-        Loads the model for the specified model name.
-
-        Returns
-        -------
-        AutoModel
-            The loaded model instance.
-        """
-        if self._model is None:
-            print(f"Loading model: {self.model_name}")
-            self._model = AutoModel.from_pretrained(self.model_name)
-        return self._model
-
-
     def __get_mapping(self) -> dict:
         """
         Creates a mapping of node IDs to their corresponding text.
@@ -506,66 +541,30 @@ class NodeMapper:
         - The tokenizer and model are loaded using internal methods.
         - Embeddings are generated using the `get_embeddings` function with a configurable pooling strategy.
         """
-        # get tokenizer and model
-        tokenizer = self.__load_tokenizer()
-        model = self.__load_model()
 
-        # init 
-        mapped_embeddings = {}
-
-        print(f"Embedding mapping: {len(self.mapping)} inputs ...")
-        for key, value in self.mapping.items():
-            # tokenize the text
-            tokenized = tokenizer(value, **self.tokenizer_kwargs)
-            # embbed
-            embeddings = get_embeddings(
-                model, 
-                tokenized, 
-                pooling_function=map_pooling(self.pooling)
-            )
-            # add to the dictionary
-            mapped_embeddings[key] = embeddings
-
-        return mapped_embeddings
-    
-
-    def embed_text(self, text_input: str) -> torch.Tensor:
-        """
-        Embeds a given text using the pre-trained model and pooling function.
-
-        Parameters
-        ----------
-        text : str
-            The text to be embedded.
-
-        Returns
-        -------
-        torch.Tensor
-            The normalized embedding of the input text.
-        """
-        # get tokenizer and model
-        tokenizer = self.__load_tokenizer()
-        model = self.__load_model()
-
-        # check cache
-        if text_input in self._input_text_embedding:
-            # return cached embedding
-            return self._input_text_embedding[text_input]
-        else:
-            # tokenize the input text
-            tokenized_input = tokenizer(text_input, **self.tokenizer_kwargs)
-        
-            # gen embedding
-            embedding = get_embeddings(
-                model, 
-                tokenized_input, 
-                pooling_function=map_pooling(self.pooling)
-            )
-            # add to cache
-            self._input_text_embedding[text_input] = embedding
-            return embedding
+        return {k: self.embed_text(v) for k,v in self.mapping.items()}
 
 
+        # # init 
+        # mapped_embeddings = {}
+
+        # print(f"Embedding mapping: {len(self.mapping)} inputs ...")
+        # for key, value in self.mapping.items():
+        #     # tokenize the text
+        #     tokenized = tokenizer(value, **self.tokenizer_kwargs)
+        #     # embbed
+        #     embeddings = get_embeddings(
+        #         model, 
+        #         tokenized, 
+        #         pooling_function=map_pooling(self.pooling)
+        #     )
+        #     # add to the dictionary
+        #     mapped_embeddings[key] = embeddings
+
+        # return mapped_embeddings
+
+
+    # Public methods
     def get_similar(
         self, 
         input_text: str, 
@@ -574,6 +573,7 @@ class NodeMapper:
     ) -> list:
         """
         Finds similar items in the mapping based on a similarity threshold.
+
         Parameters
         ----------
         input_text : str
@@ -628,8 +628,8 @@ class NodeMapper:
         }
         # desc sort matches by score
         return dict(sorted(matches.items(), key=lambda item: item[1]['score'], reverse=True))
-
     
+
     def get_match(
         self, 
         input_text: str, 
@@ -638,6 +638,7 @@ class NodeMapper:
     ) -> list:
         """
         Finds the best match for the input text from the mapping based on a similarity threshold.
+
         Parameters
         ----------
         input_text : str
@@ -653,12 +654,14 @@ class NodeMapper:
             A tuple containing the ID of the best match and its corresponding metadata.
             The metadata includes the text of the match and its similarity score.
             If no match is found above the threshold, returns (None, None).
+
         Raises
         ------
         TypeError
             If `input_text` is not a string or if `metric` is not a string.
         ValueError
             If `metric` is not one of the supported similarity metrics ("cosine" or "jaccard").
+
         Examples
         --------
         >>> mapper = NodeMapper(df, text_col='text', id_col='id')
