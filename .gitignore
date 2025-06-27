@@ -27,3 +27,6 @@ _templates
 
 # VSCode may create a config file with this name
 **.vscode
+
+# ignore more stuff
+.venv
