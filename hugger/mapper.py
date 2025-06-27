@@ -321,6 +321,31 @@ class HuggingMapper:
             )
         self._pooling = value
 
+    # immutable properties
+    @property
+    def tokenizer(self) -> AutoTokenizer:
+        """
+        Returns the pre-trained tokenizer instance.
+
+        Returns
+        -------
+        AutoTokenizer
+            The loaded tokenizer instance.
+        """
+        return self.__load_tokenizer()
+
+    @property
+    def model(self) -> AutoModel:
+        """
+        Returns the pre-trained model instance.
+
+        Returns
+        -------
+        AutoModel
+            The loaded model instance.
+        """
+        return self.__load_model()
+
 
     # Helper methods
     def __load_tokenizer(self) -> AutoTokenizer:
