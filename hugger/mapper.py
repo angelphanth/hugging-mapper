@@ -1,9 +1,5 @@
 import pandas as pd
-from transformers import (
-    AutoModel,
-    AutoTokenizer,
-    BatchEncoding
-)
+import transformers
 import torch
 from sklearn.metrics.pairwise import cosine_similarity
 import collections
@@ -21,7 +17,7 @@ def map_pooling(pooling:str):
 
     Returns
     -------
-    function
+    Callable
         The corresponding pooling function.
 
     Raises
@@ -127,7 +123,7 @@ def attention_pooling(
 
 
 def get_tokens(
-    tokenizer: AutoTokenizer,
+    tokenizer: transformers.AutoTokenizer,
     input: list|str,
     tokenizer_kwargs: dict = dict(
         padding=True, 
@@ -135,7 +131,7 @@ def get_tokens(
         return_tensors="pt", 
         max_length=512
     ),
-) -> BatchEncoding:
+) -> transformers.BatchEncoding:
     """
     Encodes a list of sentences using a Hugging Face tokenizer.
 
@@ -145,7 +141,7 @@ def get_tokens(
         The tokenizer instance from Hugging Face's `transformers` library.
     input : list of str
         A list of sentences to be tokenized.
-    tokenizer_kwargs : dict, optional
+    tokenizer_kwargs : dict
         Additional keyword arguments to pass to the tokenizer (default is
         ``{'padding': True, 'truncation': True, 'return_tensors': 'pt', 'max_length': 512}``).
 
@@ -181,8 +177,8 @@ def get_tokens(
 
 
 def get_embeddings(
-    model: AutoModel,
-    encoded_input: BatchEncoding,
+    model: transformers.AutoModel,
+    encoded_input: transformers.BatchEncoding,
     pooling_function=attention_pooling
 ) -> torch.Tensor:
     """
@@ -198,7 +194,7 @@ def get_embeddings(
         The Hugging Face model used to generate token embeddings.
     encoded_input : transformers.BatchEncoding
         The batch of tokenized sentences to embed.
-    pooling_function : Callable, optional
+    pooling_function : Callable
         The pooling function to aggregate token embeddings into sentence embeddings.
         Defaults to `attention_pooling`.
 
@@ -248,12 +244,12 @@ class HuggingMapper:
 
     Parameters
     ----------
-    model_name : str, optional
+    model_name : str
         The name of the pre-trained model to be used for generating embeddings (default is "cambridgeltl/SapBERT-from-PubMedBERT-fulltext").
-    tokenizer_kwargs : dict, optional
+    tokenizer_kwargs : dict
         Additional keyword arguments to be passed to the tokenizer (default is 
         `{'padding': True, 'truncation': True, 'return_tensors': 'pt', 'max_length': 512}`).
-    pooling : str, optional
+    pooling : str
         The pooling method to be used for generating embeddings (default is "mean_pooling").
 
     Attributes
@@ -293,9 +289,9 @@ class HuggingMapper:
 
         # load tokenizer and model
         print(f"Loading tokenizer for model: {self.model_name}")
-        self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self._tokenizer = transformers.AutoTokenizer.from_pretrained(self.model_name)
         print(f"Loading model: {self.model_name}")
-        self._model = AutoModel.from_pretrained(self.model_name)
+        self._model = transformers.AutoModel.from_pretrained(self.model_name)
 
     @property
     def tokenizer_kwargs(self) -> dict:
@@ -358,25 +354,25 @@ class HuggingMapper:
 
     # immutable class properties
     @property
-    def tokenizer(self) -> AutoTokenizer:
+    def tokenizer(self) -> transformers.AutoTokenizer:
         """
         Returns the pre-trained tokenizer instance.
 
         Returns
         -------
-        AutoTokenizer
+        transformers.AutoTokenizer
             The loaded tokenizer instance.
         """
         return self._tokenizer
 
     @property
-    def model(self) -> AutoModel:
+    def model(self) -> transformers.AutoModel:
         """
         Returns the pre-trained model instance.
 
         Returns
         -------
-        AutoModel
+        transformers.AutoModel
             The loaded model instance.
         """
         return self._model
@@ -417,23 +413,23 @@ class NodeMapper(HuggingMapper):
     
     Parameters
     ----------
-    df : pd.DataFrame
+    df : pandas.DataFrame
         A DataFrame containing the node IDs and their corresponding text.
     text_col : str
         The name of the column in the DataFrame that contains the text to be embedded.
-    id_col : str, optional
+    id_col : str
         The name of the column in the DataFrame that contains the node IDs (default is "id").
-    model_name : str, optional
+    model_name : str
         The name of the pre-trained model to be used for generating embeddings (default is "cambridgeltl/SapBERT-from-PubMedBERT-fulltext").
-    tokenizer_kwargs : dict, optional
+    tokenizer_kwargs : dict
         Additional keyword arguments to be passed to the tokenizer (default is 
         `{'padding': True, 'truncation': True, 'return_tensors': 'pt', 'max_length': 512}`).
-    pooling : str, optional
+    pooling : str
         The pooling method to be used for generating embeddings (default is "mean_pooling").
     
     Attributes
     ----------
-    df : pd.DataFrame
+    df : pandas.DataFrame
         The DataFrame containing the node IDs and their corresponding text.
     text_col : str
         The name of the column in the DataFrame that contains the text to be embedded.
@@ -578,9 +574,9 @@ class NodeMapper(HuggingMapper):
         ----------
         input_text : str
             The input text to find similar items for.
-        threshold : float, optional
+        threshold : float
             The minimum similarity score required to consider an item similar (default is 0.8).
-        metric : str, optional
+        metric : str
             The similarity metric to use for comparison (default is "cosine").
 
         Returns
@@ -643,9 +639,9 @@ class NodeMapper(HuggingMapper):
         ----------
         input_text : str
             The input text to find a match for.
-        threshold : float, optional
+        threshold : float
             The minimum similarity score required to consider a match valid (default is 0.8).
-        metric : str, optional
+        metric : str
             The similarity metric to use for comparison (default is "cosine").
 
         Returns
