@@ -1,0 +1,601 @@
+import pandas as pd
+from transformers import (
+    AutoModel,
+    AutoTokenizer,
+    BatchEncoding
+)
+import torch
+from sklearn.metrics.pairwise import cosine_similarity
+import collections
+import torch.nn.functional as F
+
+# from pubmed_rag
+def map_pooling(pooling:str):
+    """
+    Maps a string representing the pooling type to the corresponding pooling function.
+    Parameters
+    ----------
+    pooling : str
+        The type of pooling to be used. Must be one of 'mean_pooling' or 'attention_pooling'.
+
+    Returns
+    -------
+    function
+        The corresponding pooling function.
+
+    Raises
+    ------
+    TypeError
+        If the input is not a string.
+    ValueError
+        If the pooling type is not recognized.
+        
+    Examples
+    --------
+    >>> map_pooling('mean_pooling')
+    <function mean_pooling at 0x...>
+    >>> map_pooling('attention_pooling')
+    <function attention_pooling at 0x...>
+    """
+    
+    ## PRECONDITIONS
+    # define options
+    pooling_map = {
+        'mean_pooling':mean_pooling,
+        'attention_pooling':attention_pooling
+    }
+    if not isinstance(pooling, str):
+        raise TypeError(f"pooling must be a str: {type(pooling)}")    
+    if not pooling in pooling_map:
+        raise ValueError(
+            f"pooling of {pooling} not an option in {pooling_map.keys()}"
+        )
+    
+    ## MAIN FUNCTION
+    # retrieving pooling function
+    pooling_function = pooling_map[pooling]
+    return pooling_function
+
+
+def mean_pooling(
+        model_output:torch.Tensor, 
+        attention_mask:torch.Tensor
+    ) -> torch.Tensor:
+
+    """
+    Computes the mean pooled sentence embedding from token embeddings and an attention mask.
+
+    Given the output of a transformer model and the corresponding attention mask, this function
+    calculates a single embedding vector for each sentence by averaging the token embeddings,
+    taking into account only the tokens that are not masked (i.e., valid tokens).
+
+    Parameters
+    ----------
+    model_output : torch.Tensor or tuple of torch.Tensor
+        The output from a transformer model. The first element should contain the token embeddings
+        with shape (batch_size, sequence_length, embedding_dim).
+    attention_mask : torch.Tensor
+        A mask indicating valid tokens (1 for valid, 0 for padding) with shape (batch_size, sequence_length).
+
+    Returns
+    -------
+    torch.Tensor
+        A tensor of shape (batch_size, embedding_dim) containing the mean pooled embeddings for each sentence.
+
+    Notes
+    -----
+    This function ensures that only the embeddings of valid (non-masked) tokens are averaged.
+    If a sentence contains only masked tokens, the denominator is clamped to a small value (1e-9)
+    to avoid division by zero.    
+    """
+    token_embeddings = model_output[
+        0
+    ]  # First element of model_output contains all token embeddings
+    input_mask_expanded = (
+        attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+    )
+    return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(
+        input_mask_expanded.sum(1), min=1e-9
+    )
+
+
+def attention_pooling(
+        model_output: torch.Tensor, 
+        attention_scores: torch.Tensor,
+    ) -> torch.Tensor:
+    """
+    Applies attention-based pooling to aggregate token embeddings.
+    This function computes a weighted sum of token embeddings using provided attention scores.
+    The attention scores are normalized using softmax to obtain attention weights, which are
+    then used to pool the token embeddings along the sequence dimension.
+
+    Parameters
+    ----------
+    model_output : tuple or torch.Tensor
+        The output from a model, where the first element (or the tensor itself) contains
+        token embeddings of shape (batch_size, sequence_length, embedding_dim).
+    attention_scores : torch.Tensor
+        Attention scores for each token, of shape (batch_size, sequence_length).
+
+    Returns
+    -------
+    torch.Tensor
+        The pooled embeddings of shape (batch_size, embedding_dim), obtained by
+        applying attention-based weighted sum over the token embeddings.
+    """
+
+    token_embeddings = model_output[0]
+    # Ensure attention_scores are of type float
+    attention_scores = attention_scores.float()
+    attention_weights = F.softmax(attention_scores, dim=-1)
+    return torch.sum(token_embeddings * attention_weights.unsqueeze(-1), dim=1)
+
+
+def get_tokens(
+    tokenizer: AutoTokenizer,
+    input: list|str,
+    tokenizer_kwargs: dict = dict(
+        padding=True, 
+        truncation=True, 
+        return_tensors="pt", 
+        max_length=512
+    ),
+) -> BatchEncoding:
+    """
+    Encodes a list of sentences using a Hugging Face tokenizer.
+
+    Parameters
+    ----------
+    tokenizer : transformers.AutoTokenizer
+        The tokenizer instance from Hugging Face's `transformers` library.
+    input : list of str
+        A list of sentences to be tokenized.
+    tokenizer_kwargs : dict, optional
+        Additional keyword arguments to pass to the tokenizer (default is
+        ``{'padding': True, 'truncation': True, 'return_tensors': 'pt', 'max_length': 512}``).
+
+    Returns
+    -------
+    transformers.BatchEncoding
+        The encoded inputs as a `BatchEncoding` object, suitable for model input.
+
+    Raises
+    ------
+    AssertionError
+        If `input` is not a list of strings or if `tokenizer_kwargs` is not a dictionary.
+
+    Examples
+    --------
+    >>> from transformers import AutoTokenizer
+    >>> tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+    >>> sentences = ["Hello world!", "How are you?"]
+    >>> encoded = get_tokens(tokenizer, sentences)
+    >>> print(encoded['input_ids'])
+    """
+
+    # PRECONDITION CHECKS
+    if not isinstance(input, collections.abc.Iterable):
+        raise TypeError(f"input must be a list of strings {input}")
+    if not isinstance(tokenizer_kwargs, dict):
+        raise TypeError(f"tokenizer_kwargs must be a dict: {tokenizer_kwargs}")
+
+    # MAIN FUNCTION
+    # get tokens
+    encoded_input = tokenizer(input, **tokenizer_kwargs)
+
+    return encoded_input
+
+
+def get_embeddings(
+    model: AutoModel,
+    encoded_input: BatchEncoding,
+    pooling_function=attention_pooling
+) -> torch.Tensor:
+    """
+    Generates sentence embeddings using a Hugging Face model and a specified pooling function.
+
+    This function takes a pre-trained Hugging Face model and a batch of encoded sentences,
+    computes their embeddings, applies a pooling function to obtain sentence-level representations,
+    and normalizes the resulting embeddings.
+
+    Parameters
+    ----------
+    model : transformers.AutoModel
+        The Hugging Face model used to generate token embeddings.
+    encoded_input : transformers.BatchEncoding
+        The batch of tokenized sentences to embed.
+    pooling_function : Callable, optional
+        The pooling function to aggregate token embeddings into sentence embeddings.
+        Defaults to `attention_pooling`.
+
+    Returns
+    -------
+    torch.Tensor
+        The normalized sentence embeddings as a tensor.
+
+    Raises
+    ------
+    AssertionError
+        If `encoded_input` is not an instance of `transformers.BatchEncoding`.
+
+    Notes
+    -----
+    - The function disables gradient computation for efficiency.
+    - The output embeddings are L2-normalized along dimension 1.
+    """
+
+    # PRECONDITION CHECKS
+
+    # MAIN FUNCTION
+
+    # Compute token embeddings
+    with torch.no_grad():
+        model_output = model(**encoded_input)
+
+    # Perform pooling
+    sentence_embeddings = pooling_function(model_output, encoded_input["attention_mask"])
+
+    # Normalize embeddings
+    sentence_embeddings = F.normalize(sentence_embeddings, p=2, dim=1)
+
+    return sentence_embeddings
+
+
+class HuggingMapper:
+
+    def __init__(
+            self, 
+            model_name: str = "cambridgeltl/SapBERT-from-PubMedBERT-fulltext",
+            tokenizer_kwargs: dict = dict(
+                padding=True, 
+                truncation=True, 
+                return_tensors="pt", 
+                max_length=512
+            ),   
+            pooling:str = "mean_pooling",         
+        ):
+        # attributes
+        self.model_name = model_name
+        self.tokenizer_kwargs = tokenizer_kwargs
+        self.pooling = pooling
+        # for cache, hidden
+        self._tokenizer = None
+        self._model = None
+        self._input_text_embedding = {}
+
+    # Helper methods
+    def __load_tokenizer(self) -> AutoTokenizer:
+        """
+        Loads the tokenizer for the specified model.
+
+        Returns
+        -------
+        AutoTokenizer
+            The loaded tokenizer instance.
+        """
+        if self._tokenizer is None:
+            print(f"Loading tokenizer for model: {self.model_name}")
+            self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        return self._tokenizer
+    
+
+    def __load_model(self) -> AutoModel:
+        """
+        Loads the model for the specified model name.
+
+        Returns
+        -------
+        AutoModel
+            The loaded model instance.
+        """
+        if self._model is None:
+            print(f"Loading model: {self.model_name}")
+            self._model = AutoModel.from_pretrained(self.model_name)
+        return self._model
+    
+
+    def embed_text(self, text_input: str) -> torch.Tensor:
+        """
+        Embeds a given text using the pre-trained model and pooling function.
+
+        Parameters
+        ----------
+        text : str
+            The text to be embedded.
+
+        Returns
+        -------
+        torch.Tensor
+            The normalized embedding of the input text.
+        """
+        # get tokenizer and model
+        tokenizer = self.__load_tokenizer()
+        model = self.__load_model()
+
+        # check cache
+        if text_input in self._input_text_embedding:
+            # return cached embedding
+            return self._input_text_embedding[text_input]
+        else:
+            # tokenize the input text
+            tokenized_input = tokenizer(text_input, **self.tokenizer_kwargs)
+        
+            # gen embedding
+            embedding = get_embeddings(
+                model, 
+                tokenized_input, 
+                pooling_function=map_pooling(self.pooling)
+            )
+            # add to cache
+            self._input_text_embedding[text_input] = embedding
+            return embedding
+
+
+class NodeMapper:
+
+    def __init__(
+            self, 
+            df: pd.DataFrame, 
+            text_col: str, 
+            id_col: str = "id",
+            model_name: str = "cambridgeltl/SapBERT-from-PubMedBERT-fulltext",
+            tokenizer_kwargs: dict = dict(
+                padding=True, 
+                truncation=True, 
+                return_tensors="pt", 
+                max_length=512
+            ),   
+            pooling:str = "mean_pooling",         
+        ):
+        # attributes
+        self.df = df
+        self.text_col = text_col
+        self.id_col = id_col
+        self.model_name = model_name
+        self.tokenizer_kwargs = tokenizer_kwargs
+        self.pooling = pooling
+        # for cache, hidden
+        self._tokenizer = None
+        self._model = None
+        self._input_text_embedding = {}
+        # for cache not hidden
+        self.mapping = self.__get_mapping()
+        self.mapping_embeddings = self.__embed_mapping()
+
+    # Helper methods
+    def __load_tokenizer(self) -> AutoTokenizer:
+        """
+        Loads the tokenizer for the specified model.
+
+        Returns
+        -------
+        AutoTokenizer
+            The loaded tokenizer instance.
+        """
+        if self._tokenizer is None:
+            print(f"Loading tokenizer for model: {self.model_name}")
+            self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        return self._tokenizer
+    
+
+    def __load_model(self) -> AutoModel:
+        """
+        Loads the model for the specified model name.
+
+        Returns
+        -------
+        AutoModel
+            The loaded model instance.
+        """
+        if self._model is None:
+            print(f"Loading model: {self.model_name}")
+            self._model = AutoModel.from_pretrained(self.model_name)
+        return self._model
+
+
+    def __get_mapping(self) -> dict:
+        """
+        Creates a mapping of node IDs to their corresponding text.
+
+        Returns
+        -------
+        dict
+            A dictionary where keys are node IDs and values are the corresponding text.
+        """
+        if self.id_col not in self.df.columns or self.text_col not in self.df.columns:
+            raise ValueError(
+                f"DataFrame must contain columns: {self.id_col}, {self.text_col}"
+            )
+        
+        return dict(zip(self.df[self.id_col], self.df[self.text_col]))
+    
+
+    def __embed_mapping(self) -> dict:
+        """
+        Generates a dictionary mapping node IDs to their corresponding embeddings.
+
+        This method processes each entry in `self.mapping`, tokenizes the associated text using the loaded tokenizer,
+        and computes embeddings using the specified model and pooling function. The resulting embeddings are stored
+        in a dictionary keyed by node IDs.
+
+        Returns
+        -------
+        dict
+            A dictionary where each key is a node ID and each value is the corresponding embedding vector.
+
+        Notes
+        -----
+        - The tokenizer and model are loaded using internal methods.
+        - Embeddings are generated using the `get_embeddings` function with a configurable pooling strategy.
+        """
+        # get tokenizer and model
+        tokenizer = self.__load_tokenizer()
+        model = self.__load_model()
+
+        # init 
+        mapped_embeddings = {}
+
+        print(f"Embedding mapping: {len(self.mapping)} inputs ...")
+        for key, value in self.mapping.items():
+            # tokenize the text
+            tokenized = tokenizer(value, **self.tokenizer_kwargs)
+            # embbed
+            embeddings = get_embeddings(
+                model, 
+                tokenized, 
+                pooling_function=map_pooling(self.pooling)
+            )
+            # add to the dictionary
+            mapped_embeddings[key] = embeddings
+
+        return mapped_embeddings
+    
+
+    def embed_text(self, text_input: str) -> torch.Tensor:
+        """
+        Embeds a given text using the pre-trained model and pooling function.
+
+        Parameters
+        ----------
+        text : str
+            The text to be embedded.
+
+        Returns
+        -------
+        torch.Tensor
+            The normalized embedding of the input text.
+        """
+        # get tokenizer and model
+        tokenizer = self.__load_tokenizer()
+        model = self.__load_model()
+
+        # check cache
+        if text_input in self._input_text_embedding:
+            # return cached embedding
+            return self._input_text_embedding[text_input]
+        else:
+            # tokenize the input text
+            tokenized_input = tokenizer(text_input, **self.tokenizer_kwargs)
+        
+            # gen embedding
+            embedding = get_embeddings(
+                model, 
+                tokenized_input, 
+                pooling_function=map_pooling(self.pooling)
+            )
+            # add to cache
+            self._input_text_embedding[text_input] = embedding
+            return embedding
+
+
+    def get_similar(
+        self, 
+        input_text: str, 
+        threshold: float = 0.8,
+        metric: str = "cosine"
+    ) -> list:
+        """
+        Finds similar items in the mapping based on a similarity threshold.
+        Parameters
+        ----------
+        input_text : str
+            The input text to find similar items for.
+        threshold : float, optional
+            The minimum similarity score required to consider an item similar (default is 0.8).
+        metric : str, optional
+            The similarity metric to use for comparison (default is "cosine").
+
+        Returns
+        -------
+        dict
+            A dictionary containing the IDs of similar items as keys and their corresponding metadata
+            (text and similarity score) as values. The dictionary is sorted in descending order by score.
+
+        Raises
+        ------
+        TypeError
+            If `input_text` is not a string or if `metric` is not a string.
+        ValueError
+            If `metric` is not one of the supported similarity metrics ("cosine" or "jaccard"). 
+
+        Examples
+        --------
+        >>> mapper = NodeMapper(df, text_col='text', id_col='id')
+        >>> similar_items = mapper.get_similar("example input text", threshold=0.8, metric="cosine")
+        >>> print(similar_items)
+        """
+        
+        if not isinstance(metric, str):
+            raise TypeError(f"metric must be a string: {type(metric)}")
+        # cleaning
+        metric = metric.lower().strip()
+        if metric not in ["cosine", "jaccard"]:
+            raise ValueError(f"metric must be 'cosine' or 'todo': {metric}")
+        
+        if metric == "cosine":
+            similarity_func = cosine_similarity
+        else:
+            raise ValueError(f"Unsupported metric: {metric}")
+
+        # get embedding for input text
+        input_embedding = self.embed_text(input_text)
+
+        # filter mapping dict based on similarity threshold
+        matches = {
+            key: {
+                "text": self.mapping[key],
+                "score": similarity_func(input_embedding, value).item(),
+            } for key, value in self.mapping_embeddings.items()
+            if similarity_func(input_embedding, value) >= threshold
+        }
+        # desc sort matches by score
+        return dict(sorted(matches.items(), key=lambda item: item[1]['score'], reverse=True))
+
+    
+    def get_match(
+        self, 
+        input_text: str, 
+        threshold: float = 0.8,
+        metric: str = "cosine"
+    ) -> list:
+        """
+        Finds the best match for the input text from the mapping based on a similarity threshold.
+        Parameters
+        ----------
+        input_text : str
+            The input text to find a match for.
+        threshold : float, optional
+            The minimum similarity score required to consider a match valid (default is 0.8).
+        metric : str, optional
+            The similarity metric to use for comparison (default is "cosine").
+
+        Returns
+        -------
+        tuple
+            A tuple containing the ID of the best match and its corresponding metadata.
+            The metadata includes the text of the match and its similarity score.
+            If no match is found above the threshold, returns (None, None).
+        Raises
+        ------
+        TypeError
+            If `input_text` is not a string or if `metric` is not a string.
+        ValueError
+            If `metric` is not one of the supported similarity metrics ("cosine" or "jaccard").
+        Examples
+        --------
+        >>> mapper = NodeMapper(df, text_col='text', id_col='id')
+        >>> best_match_id, metadata = mapper.get_match("example input text", threshold=0.8, metric="cosine")
+        >>> print(best_match_id, metadata)
+        """
+
+        # get similar items
+        matches = self.get_similar(input_text, threshold, metric)
+
+        # check if matches is empty
+        if not matches:
+            return None, None
+        else:
+            # return top match only
+            top_key = list(matches.keys())[0]
+            return top_key, matches[top_key]
+
