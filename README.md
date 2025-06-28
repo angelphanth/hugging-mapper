@@ -10,8 +10,12 @@
     <a href="https://github.com/angelphanth/hugging-mapper/actions/workflows/cicd.yml">
         <img src="https://github.com/angelphanth/hugging-mapper/actions/workflows/cicd.yml/badge.svg?branch=" alt="Python application">
     </a>
+    <a href="https://hugging-mapper.readthedocs.io/en/latest/?badge=latest">
+        <img src="https://readthedocs.org/projects/hugging-mapper/badge/?version=latest" alt="Read the Docs">
+    </a>
     <img src="https://img.shields.io/pypi/pyversions/hugging-mapper" alt="PyPI - Python Version">
     <img src="https://img.shields.io/pypi/dm/hugging-mapper" alt="PyPI - Downloads">
+    <br>
     <br>
     <img src="https://img.shields.io/github/issues/angelphanth/hugging-mapper" alt="GitHub issues">
     <img src="https://img.shields.io/github/license/angelphanth/hugging-mapper" alt="GitHub license">
