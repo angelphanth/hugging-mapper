@@ -14,7 +14,6 @@
         <img src="https://readthedocs.org/projects/hugging-mapper/badge/?version=latest" alt="Read the Docs">
     </a>
     <img src="https://img.shields.io/pypi/pyversions/hugging-mapper" alt="PyPI - Python Version">
-    <img src="https://img.shields.io/pypi/dm/hugging-mapper" alt="PyPI - Downloads">
     <br>
     <br>
     <img src="https://img.shields.io/github/issues/angelphanth/hugging-mapper" alt="GitHub issues">
@@ -24,11 +23,12 @@
 </p>
 
 
-## Table of Contents
+## Table of Contents :bookmark_tabs:
 
 - [Installation](#installation)
 - [Features](#features)
 - [Usage](#usage)
+- [Documentation](#documentation)
 - [License](#license)
 
 ## Installation 
@@ -38,9 +38,9 @@ pip install hugging-mapper
 ```
 
 ## Features
-- Fast text similarity scoring
+- Easily compare how similar two pieces of text are
 - Customizable model selection at initialization
-- Supports Hugging Face models with sentence embedding capability
+- Works with Hugging Face models that create sentence embeddings
 - Batch scoring for lists of sentence pairs
 
 
@@ -81,6 +81,10 @@ most_similar = node_mapper.get_similar("protein", threshold=0)
 # get matching node
 node_id, metadata = node_mapper.get_match("genetics", threshold=0.7)
 ```
+
+## Documentation 
+
+Tutorials and documentation are available on [Read the Docs](https://hugging-mapper.readthedocs.io/) :notebook_with_decorative_cover::grinning:
 
 ## License
 
