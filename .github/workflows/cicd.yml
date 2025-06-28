@@ -126,4 +126,5 @@ jobs:
           # remove repository key to set the default to pypi (not test.pypi.org)
           repository-url: https://test.pypi.org/legacy/
           user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          # password: ${{ secrets.PYPI_API_TOKEN }}
