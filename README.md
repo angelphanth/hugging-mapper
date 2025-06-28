@@ -1,4 +1,4 @@
-![img](docs/assets/hugger-logo-wide.svg)
+![img](https://raw.githubusercontent.com/angelphanth/hugging-mapper/refs/heads/main/docs/assets/hugger-logo-wide.svg)
 
 <h1 align="center">Hugging-Mapper</h1>
 <p align="center"><em>A lightweight python tool for easy text similarity scoring using Hugging Face models</em></p>
