@@ -4,7 +4,7 @@ authors = [
   { name = "Angel L. P.", email = "59593766+angelphanth@users.noreply.github.com" },
 ]
 description = "A lightweight python tool for effortless text similarity scoring using Hugging Face models"
-name = "hugger"
+name = "hugging-mapper"
 # This means: Load the version from the package itself.
 # See the section below: [tools.setuptools.dynamic]
 dynamic = ["version"]
