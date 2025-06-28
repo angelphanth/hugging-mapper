@@ -88,8 +88,8 @@ include = ["hugger*"]
 # dependencies = ["numpy", "pandas", "scipy", "matplotlib", "seaborn"]
 # use requirements.txt instead of pyproject.toml for dependencies
 # https://stackoverflow.com/a/73600610/9684872
-[tool.setuptools.dynamic]
-dependencies = {file = ["requirements.txt"]}
+# [tool.setuptools.dynamic]
+# dependencies = {file = ["requirements.txt"]}
 
 
 [project.urls]
