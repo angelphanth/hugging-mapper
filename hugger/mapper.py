@@ -5,8 +5,9 @@ from sklearn.metrics.pairwise import cosine_similarity
 import collections
 import torch.nn.functional as F
 
+
 # from pubmed_rag
-def map_pooling(pooling:str):
+def map_pooling(pooling: str):
     """
     Maps a string representing the pooling type to the corresponding pooling function.
 
@@ -26,7 +27,7 @@ def map_pooling(pooling:str):
         If the input is not a string.
     ValueError
         If the pooling type is not recognized.
-        
+
     Examples
     --------
     >>> map_pooling('mean_pooling')
@@ -34,20 +35,15 @@ def map_pooling(pooling:str):
     >>> map_pooling('attention_pooling')
     <function attention_pooling at 0x...>
     """
-    
+
     ## PRECONDITIONS
     # define options
-    pooling_map = {
-        'mean_pooling':mean_pooling,
-        'attention_pooling':attention_pooling
-    }
+    pooling_map = {"mean_pooling": mean_pooling, "attention_pooling": attention_pooling}
     if not isinstance(pooling, str):
-        raise TypeError(f"pooling must be a str: {type(pooling)}")    
-    if not pooling in pooling_map:
-        raise ValueError(
-            f"pooling of {pooling} not an option in {pooling_map.keys()}"
-        )
-    
+        raise TypeError(f"pooling must be a str: {type(pooling)}")
+    if pooling not in pooling_map:
+        raise ValueError(f"pooling of {pooling} not an option in {pooling_map.keys()}")
+
     ## MAIN FUNCTION
     # retrieving pooling function
     pooling_function = pooling_map[pooling]
@@ -55,10 +51,8 @@ def map_pooling(pooling:str):
 
 
 def mean_pooling(
-        model_output:torch.Tensor, 
-        attention_mask:torch.Tensor
-    ) -> torch.Tensor:
-
+    model_output: torch.Tensor, attention_mask: torch.Tensor
+) -> torch.Tensor:
     """
     Computes the mean pooled sentence embedding from token embeddings and an attention mask.
 
@@ -91,9 +85,9 @@ def mean_pooling(
 
 
 def attention_pooling(
-        model_output: torch.Tensor, 
-        attention_scores: torch.Tensor,
-    ) -> torch.Tensor:
+    model_output: torch.Tensor,
+    attention_scores: torch.Tensor,
+) -> torch.Tensor:
     """
     Applies attention-based pooling to aggregate token embeddings.
     This function computes a weighted sum of token embeddings using provided attention scores.
@@ -124,12 +118,9 @@ def attention_pooling(
 
 def get_tokens(
     tokenizer: transformers.AutoTokenizer,
-    input: list|str,
+    input: list,
     tokenizer_kwargs: dict = dict(
-        padding=True, 
-        truncation=True, 
-        return_tensors="pt", 
-        max_length=512
+        padding=True, truncation=True, return_tensors="pt", max_length=512
     ),
 ) -> transformers.BatchEncoding:
     """
@@ -139,7 +130,7 @@ def get_tokens(
     ----------
     tokenizer : transformers.AutoTokenizer
         The tokenizer instance from Hugging Face's `transformers` library.
-    input : list of str
+    input : list or str
         A list of sentences to be tokenized.
     tokenizer_kwargs : dict
         Additional keyword arguments to pass to the tokenizer (default is
@@ -155,10 +146,10 @@ def get_tokens(
     AssertionError
         If `input` is not a list of strings or if `tokenizer_kwargs` is not a dictionary.
 
-    Example
+    Examples
     --------
     >>> from transformers import AutoTokenizer
-    >>> tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+    >>> tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/all-MiniLM-L12-v2')
     >>> sentences = ["dogs are happy", "cats are cute"]
     >>> encoded = get_tokens(tokenizer, sentences)
     """
@@ -179,7 +170,7 @@ def get_tokens(
 def get_embeddings(
     model: transformers.AutoModel,
     encoded_input: transformers.BatchEncoding,
-    pooling_function=attention_pooling
+    pooling_function=attention_pooling,
 ) -> torch.Tensor:
     """
     Generates sentence embeddings using a Hugging Face model and a specified pooling function.
@@ -208,10 +199,10 @@ def get_embeddings(
     AssertionError
         If `encoded_input` is not an instance of `transformers.BatchEncoding`.
 
-    Example
+    Examples
     --------
     >>> from transformers import AutoTokenizer, AutoModel
-    >>> huggingface_model_name = 'bert-base-uncased'
+    >>> huggingface_model_name = 'sentence-transformers/all-MiniLM-L6-v2'
     >>> tokenizer = AutoTokenizer.from_pretrained(huggingface_model_name)
     >>> model = AutoModel.from_pretrained(huggingface_model_name)
     >>> sentences = ["dogs are happy", "cats are cute"]
@@ -228,7 +219,9 @@ def get_embeddings(
         model_output = model(**encoded_input)
 
     # Perform pooling
-    sentence_embeddings = pooling_function(model_output, encoded_input["attention_mask"])
+    sentence_embeddings = pooling_function(
+        model_output, encoded_input["attention_mask"]
+    )
 
     # Normalize embeddings
     sentence_embeddings = F.normalize(sentence_embeddings, p=2, dim=1)
@@ -247,7 +240,7 @@ class HuggingMapper:
     model_name : str
         The name of the pre-trained model to be used for generating embeddings (default is "cambridgeltl/SapBERT-from-PubMedBERT-fulltext").
     tokenizer_kwargs : dict
-        Additional keyword arguments to be passed to the tokenizer (default is 
+        Additional keyword arguments to be passed to the tokenizer (default is
         `{'padding': True, 'truncation': True, 'return_tensors': 'pt', 'max_length': 512}`).
     pooling : str
         The pooling method to be used for generating embeddings (default is "mean_pooling").
@@ -272,16 +265,13 @@ class HuggingMapper:
     """
 
     def __init__(
-            self, 
-            model_name: str = "cambridgeltl/SapBERT-from-PubMedBERT-fulltext",
-            tokenizer_kwargs: dict = dict(
-                padding=True, 
-                truncation=True, 
-                return_tensors="pt", 
-                max_length=512
-            ),   
-            pooling:str = "mean_pooling",         
-        ):
+        self,
+        model_name: str = "cambridgeltl/SapBERT-from-PubMedBERT-fulltext",
+        tokenizer_kwargs: dict = dict(
+            padding=True, truncation=True, return_tensors="pt", max_length=512
+        ),
+        pooling: str = "mean_pooling",
+    ):
         # attributes
         self.model_name = model_name
         self.tokenizer_kwargs = tokenizer_kwargs
@@ -304,7 +294,7 @@ class HuggingMapper:
             The tokenizer keyword arguments.
         """
         return self._tokenizer_kwargs
-    
+
     @tokenizer_kwargs.setter
     def tokenizer_kwargs(self, value: dict):
         """
@@ -330,7 +320,7 @@ class HuggingMapper:
             The pooling method.
         """
         return self._pooling
-    
+
     @pooling.setter
     def pooling(self, value: str):
         """
@@ -340,7 +330,7 @@ class HuggingMapper:
         ----------
         value : str
             The pooling method to set. Must be one of 'mean_pooling' or 'attention_pooling'.
-        
+
         Raises
         ------
         ValueError
@@ -394,12 +384,10 @@ class HuggingMapper:
 
         # tokenize the input text
         tokenized_input = self._tokenizer(text_input, **self.tokenizer_kwargs)
-    
+
         # gen embedding
         embedding = get_embeddings(
-            self._model, 
-            tokenized_input, 
-            pooling_function=map_pooling(self.pooling)
+            self._model, tokenized_input, pooling_function=map_pooling(self.pooling)
         )
 
         return embedding
@@ -410,7 +398,7 @@ class NodeMapper(HuggingMapper):
     A class for mapping nodes to their corresponding text embeddings using a Hugging Face model.
     This class extends the HuggingMapper class to handle a DataFrame containing node IDs and their associated text.
     It provides methods to generate embeddings for each node and find similar nodes based on a given input text.
-    
+
     Parameters
     ----------
     df : pandas.DataFrame
@@ -422,11 +410,11 @@ class NodeMapper(HuggingMapper):
     model_name : str
         The name of the pre-trained model to be used for generating embeddings (default is "cambridgeltl/SapBERT-from-PubMedBERT-fulltext").
     tokenizer_kwargs : dict
-        Additional keyword arguments to be passed to the tokenizer (default is 
+        Additional keyword arguments to be passed to the tokenizer (default is
         `{'padding': True, 'truncation': True, 'return_tensors': 'pt', 'max_length': 512}`).
     pooling : str
         The pooling method to be used for generating embeddings (default is "mean_pooling").
-    
+
     Attributes
     ----------
     df : pandas.DataFrame
@@ -439,7 +427,7 @@ class NodeMapper(HuggingMapper):
         A dictionary mapping node IDs to their corresponding text.
     mapping_embeddings : dict
         A dictionary mapping node IDs to their corresponding embeddings.
-    
+
     Methods
     -------
     get_similar(input_text: str, threshold: float = 0.8, metric: str = "cosine") -> dict
@@ -447,20 +435,18 @@ class NodeMapper(HuggingMapper):
     get_match(input_text: str, threshold: float = 0.8, metric: str = "cosine") -> tuple
         Finds the best match for the input text from the mapping based on a similarity threshold.
     """
+
     def __init__(
-            self, 
-            df: pd.DataFrame, 
-            text_col: str, 
-            id_col: str = "id",
-            model_name: str = "cambridgeltl/SapBERT-from-PubMedBERT-fulltext",
-            tokenizer_kwargs: dict = dict(
-                padding=True, 
-                truncation=True, 
-                return_tensors="pt", 
-                max_length=512
-            ),   
-            pooling:str = "mean_pooling",         
-        ):
+        self,
+        df: pd.DataFrame,
+        text_col: str,
+        id_col: str = "id",
+        model_name: str = "cambridgeltl/SapBERT-from-PubMedBERT-fulltext",
+        tokenizer_kwargs: dict = dict(
+            padding=True, truncation=True, return_tensors="pt", max_length=512
+        ),
+        pooling: str = "mean_pooling",
+    ):
         # initialize the parent class
         super().__init__(
             model_name,
@@ -487,7 +473,7 @@ class NodeMapper(HuggingMapper):
             A dictionary where keys are node IDs and values are the corresponding text.
         """
         return self._mapping
-    
+
     @property
     def mapping_embeddings(self) -> dict:
         """
@@ -499,7 +485,6 @@ class NodeMapper(HuggingMapper):
             A dictionary where keys are node IDs and values are the corresponding embeddings.
         """
         return self._mapping_embeddings
-
 
     # Helper methods
     def __get_mapping(self) -> dict:
@@ -515,9 +500,8 @@ class NodeMapper(HuggingMapper):
             raise ValueError(
                 f"DataFrame must contain columns: {self.id_col}, {self.text_col}"
             )
-        
+
         return dict(zip(self.df[self.id_col], self.df[self.text_col]))
-    
 
     def __embed_mapping(self) -> dict:
         """
@@ -538,10 +522,9 @@ class NodeMapper(HuggingMapper):
         - Embeddings are generated using the `get_embeddings` function with a configurable pooling strategy.
         """
 
-        return {k: self.embed_text(v) for k,v in self.mapping.items()}
+        return {k: self.embed_text(v) for k, v in self.mapping.items()}
 
-
-        # # init 
+        # # init
         # mapped_embeddings = {}
 
         # print(f"Embedding mapping: {len(self.mapping)} inputs ...")
@@ -550,8 +533,8 @@ class NodeMapper(HuggingMapper):
         #     tokenized = tokenizer(value, **self.tokenizer_kwargs)
         #     # embbed
         #     embeddings = get_embeddings(
-        #         model, 
-        #         tokenized, 
+        #         model,
+        #         tokenized,
         #         pooling_function=map_pooling(self.pooling)
         #     )
         #     # add to the dictionary
@@ -559,13 +542,9 @@ class NodeMapper(HuggingMapper):
 
         # return mapped_embeddings
 
-
     # Public methods
     def get_similar(
-        self, 
-        input_text: str, 
-        threshold: float = 0.8,
-        metric: str = "cosine"
+        self, input_text: str, threshold: float = 0.8, metric: str = "cosine"
     ) -> list:
         """
         Finds similar items in the mapping based on a similarity threshold.
@@ -590,22 +569,26 @@ class NodeMapper(HuggingMapper):
         TypeError
             If `input_text` is not a string or if `metric` is not a string.
         ValueError
-            If `metric` is not one of the supported similarity metrics ("cosine" or "jaccard"). 
+            If `metric` is not one of the supported similarity metrics ("cosine" or "jaccard").
 
         Examples
         --------
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({"id": ["n1", "n2"], "text": ["hello", "world"]})
         >>> mapper = NodeMapper(df, text_col='text', id_col='id')
-        >>> similar_items = mapper.get_similar("example input text", threshold=0.8, metric="cosine")
-        >>> print(similar_items)
+        Loading tokenizer for model: cambridgeltl/SapBERT-from-PubMedBERT-fulltext
+        Loading model: cambridgeltl/SapBERT-from-PubMedBERT-fulltext
+        Generating embeddings for 2 nodes ...
+        >>> similar_items = mapper.get_similar("planet", threshold=0.8, metric="cosine")
         """
-        
+
         if not isinstance(metric, str):
             raise TypeError(f"metric must be a string: {type(metric)}")
         # cleaning
         metric = metric.lower().strip()
         if metric not in ["cosine", "jaccard"]:
             raise ValueError(f"metric must be 'cosine' or 'todo': {metric}")
-        
+
         if metric == "cosine":
             similarity_func = cosine_similarity
         else:
@@ -619,18 +602,17 @@ class NodeMapper(HuggingMapper):
             key: {
                 "text": self.mapping[key],
                 "score": similarity_func(input_embedding, value).item(),
-            } for key, value in self.mapping_embeddings.items()
+            }
+            for key, value in self.mapping_embeddings.items()
             if similarity_func(input_embedding, value) >= threshold
         }
         # desc sort matches by score
-        return dict(sorted(matches.items(), key=lambda item: item[1]['score'], reverse=True))
-    
+        return dict(
+            sorted(matches.items(), key=lambda item: item[1]["score"], reverse=True)
+        )
 
     def get_match(
-        self, 
-        input_text: str, 
-        threshold: float = 0.8,
-        metric: str = "cosine"
+        self, input_text: str, threshold: float = 0.8, metric: str = "cosine"
     ) -> list:
         """
         Finds the best match for the input text from the mapping based on a similarity threshold.
@@ -660,9 +642,13 @@ class NodeMapper(HuggingMapper):
 
         Examples
         --------
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({"id": ["n1", "n2"], "text": ["hello", "world"]})
         >>> mapper = NodeMapper(df, text_col='text', id_col='id')
-        >>> best_match_id, metadata = mapper.get_match("example input text", threshold=0.8, metric="cosine")
-        >>> print(best_match_id, metadata)
+        Loading tokenizer for model: cambridgeltl/SapBERT-from-PubMedBERT-fulltext
+        Loading model: cambridgeltl/SapBERT-from-PubMedBERT-fulltext
+        Generating embeddings for 2 nodes ...
+        >>> best_match_id, metadata = mapper.get_match("earth", threshold=0.8, metric="cosine")
         """
 
         # get similar items
@@ -675,4 +661,3 @@ class NodeMapper(HuggingMapper):
             # return top match only
             top_key = list(matches.keys())[0]
             return top_key, matches[top_key]
-

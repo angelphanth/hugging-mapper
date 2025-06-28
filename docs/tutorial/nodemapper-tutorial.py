@@ -6,7 +6,7 @@
 # Start by importing `NodeMapper`
 
 # %%
-#from hugger import *
+# from hugger import *
 from hugger.mapper import NodeMapper
 
 # %% [markdown]
@@ -14,7 +14,7 @@ from hugger.mapper import NodeMapper
 
 # %%
 # An example dataframe
-import pandas as pd 
+import pandas as pd
 
 # generate data
 ids = ["id1", "id2", "id3", "id4", "id5"]
@@ -29,13 +29,13 @@ texts = [
 df = pd.DataFrame({"id": ids, "text": texts})
 
 # %% [markdown]
-# Initializing `NodeMapper` will 
+# Initializing `NodeMapper` will
 # - load the given huggingface model
 # - generate embeddings for the text column
 # - creating a dictionary of the node ids : text embeddings
 
 # %%
-# init 
+# init
 mapper = NodeMapper(
     df=df,
     text_col="text",
@@ -51,10 +51,8 @@ mapper = NodeMapper(
 embedding = mapper.embed_text("Good morning")
 print(embedding.shape)
 
-# generate embeddings for a list of texts 
-embeddings = mapper.embed_text(
-    ["Hello world", "Good evening", "Lunch time!"]
-)
+# generate embeddings for a list of texts
+embeddings = mapper.embed_text(["Hello world", "Good evening", "Lunch time!"])
 print(embeddings.shape)
 
 # %% [markdown]
@@ -62,10 +60,10 @@ print(embeddings.shape)
 
 # %%
 # retrieve those most similar to given text, above threshold
-mapper.get_similar("concrete", threshold=0) #threshold 0 returns all
+mapper.get_similar("concrete", threshold=0)  # threshold 0 returns all
 
 # %%
 # retrieve top match, above threshold
-print(mapper.get_match("joyful", threshold=0.5), '\n')
-print(mapper.get_match("concrete", threshold=0.5), '\n')
-print(mapper.get_match("donut", threshold=0.5), '\n')
+print(mapper.get_match("joyful", threshold=0.5), "\n")
+print(mapper.get_match("concrete", threshold=0.5), "\n")
+print(mapper.get_match("donut", threshold=0.5), "\n")
