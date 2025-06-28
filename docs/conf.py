@@ -15,10 +15,10 @@ from importlib import metadata
 
 # -- Project information -----------------------------------------------------
 
-project = "hugger"
+project = "hugging-mapper"
 copyright = "2025, Angel L. P."
 author = "Angel L. P."
-PACKAGE_VERSION = metadata.version("hugger")
+PACKAGE_VERSION = metadata.version("hugging-mapper")
 version = PACKAGE_VERSION
 release = PACKAGE_VERSION
 

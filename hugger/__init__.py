@@ -2,7 +2,7 @@
 # It is used to indicate that the directory in which it resides is a Python package
 from importlib import metadata
 
-__version__ = metadata.version("hugger")
+__version__ = metadata.version("hugging-mapper")
 
 from .mapper import HuggingMapper, NodeMapper
 
