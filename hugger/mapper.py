@@ -118,7 +118,7 @@ def attention_pooling(
 
 def get_tokens(
     tokenizer: transformers.AutoTokenizer,
-    input: list | str,
+    input: list,
     tokenizer_kwargs: dict = dict(
         padding=True, truncation=True, return_tensors="pt", max_length=512
     ),
@@ -130,7 +130,7 @@ def get_tokens(
     ----------
     tokenizer : transformers.AutoTokenizer
         The tokenizer instance from Hugging Face's `transformers` library.
-    input : list of str
+    input : list or str
         A list of sentences to be tokenized.
     tokenizer_kwargs : dict
         Additional keyword arguments to pass to the tokenizer (default is
