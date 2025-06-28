@@ -155,10 +155,10 @@ def get_tokens(
     AssertionError
         If `input` is not a list of strings or if `tokenizer_kwargs` is not a dictionary.
 
-    Example
+    Examples
     --------
     >>> from transformers import AutoTokenizer
-    >>> tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+    >>> tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/all-MiniLM-L12-v2')
     >>> sentences = ["dogs are happy", "cats are cute"]
     >>> encoded = get_tokens(tokenizer, sentences)
     """
@@ -208,10 +208,10 @@ def get_embeddings(
     AssertionError
         If `encoded_input` is not an instance of `transformers.BatchEncoding`.
 
-    Example
+    Examples
     --------
     >>> from transformers import AutoTokenizer, AutoModel
-    >>> huggingface_model_name = 'bert-base-uncased'
+    >>> huggingface_model_name = 'sentence-transformers/all-MiniLM-L6-v2'
     >>> tokenizer = AutoTokenizer.from_pretrained(huggingface_model_name)
     >>> model = AutoModel.from_pretrained(huggingface_model_name)
     >>> sentences = ["dogs are happy", "cats are cute"]
@@ -594,9 +594,13 @@ class NodeMapper(HuggingMapper):
 
         Examples
         --------
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({"id": ["n1", "n2"], "text": ["hello", "world"]})
         >>> mapper = NodeMapper(df, text_col='text', id_col='id')
-        >>> similar_items = mapper.get_similar("example input text", threshold=0.8, metric="cosine")
-        >>> print(similar_items)
+        Loading tokenizer for model: cambridgeltl/SapBERT-from-PubMedBERT-fulltext
+        Loading model: cambridgeltl/SapBERT-from-PubMedBERT-fulltext
+        Generating embeddings for 2 nodes ...
+        >>> similar_items = mapper.get_similar("planet", threshold=0.8, metric="cosine")
         """
         
         if not isinstance(metric, str):
@@ -660,9 +664,13 @@ class NodeMapper(HuggingMapper):
 
         Examples
         --------
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({"id": ["n1", "n2"], "text": ["hello", "world"]})
         >>> mapper = NodeMapper(df, text_col='text', id_col='id')
-        >>> best_match_id, metadata = mapper.get_match("example input text", threshold=0.8, metric="cosine")
-        >>> print(best_match_id, metadata)
+        Loading tokenizer for model: cambridgeltl/SapBERT-from-PubMedBERT-fulltext
+        Loading model: cambridgeltl/SapBERT-from-PubMedBERT-fulltext
+        Generating embeddings for 2 nodes ...
+        >>> best_match_id, metadata = mapper.get_match("earth", threshold=0.8, metric="cosine")
         """
 
         # get similar items
