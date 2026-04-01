@@ -1,16 +1,20 @@
-import pytest
-import pandas as pd
-from typing import Callable
-from transformers import AutoModel, AutoTokenizer
-import torch
 import os
 import shutil
+from typing import Callable
+
+import pandas as pd
+import pytest
+import torch
+from transformers import (
+    AutoModel,
+    AutoTokenizer,
+)
 
 from hugger.mapper import (
-    map_pooling,
-    get_tokens,
     HuggingMapper,
     NodeMapper,
+    get_tokens,
+    map_pooling,
 )
 
 # note there are more tests in the function docstrings > Examples
@@ -69,7 +73,7 @@ def embedding(model, text_input):
 
 
 def test_get_tokens(tokenizer, text_input, tokenizer_kwargs, tokens):
-    gen_tokens = get_tokens(tokenizer, text_input, tokenizer_kwargs)
+    gen_tokens = get_tokens(tokenizer, text_input, **tokenizer_kwargs)
     assert torch.equal(gen_tokens["input_ids"], tokens["input_ids"])
     assert torch.equal(gen_tokens["attention_mask"], tokens["attention_mask"])
     # clean up
@@ -81,7 +85,7 @@ def test_map_pooling(pool_str):
 
 
 def test_HuggingMapper(model_name, tokenizer_kwargs, pool_str, text_input):
-    mapper = HuggingMapper(model_name, tokenizer_kwargs, pool_str)
+    mapper = HuggingMapper(model_name, pooling=pool_str, **tokenizer_kwargs)
     # first test
     emb = mapper.embed_text(text_input)
     assert emb.shape[0] == 1
@@ -107,8 +111,8 @@ def test_NodeMapper(df, model_name, tokenizer_kwargs, pool_str, text_input):
         text_col="text",
         id_col="id",
         model_name=model_name,
-        tokenizer_kwargs=tokenizer_kwargs,
         pooling=pool_str,
+        **tokenizer_kwargs,
     )
     # first test
     emb = mapper.embed_text([text_input] * 3)

@@ -1,9 +1,11 @@
+from typing import Literal
+
 import pandas as pd
-import transformers
 import torch
-from sklearn.metrics.pairwise import cosine_similarity
-import collections
 import torch.nn.functional as F
+import transformers
+from pydantic import StrictBool
+from sklearn.metrics.pairwise import cosine_similarity
 
 
 # from pubmed_rag
@@ -118,10 +120,13 @@ def attention_pooling(
 
 def get_tokens(
     tokenizer: transformers.AutoTokenizer,
-    input: list,
-    tokenizer_kwargs: dict = dict(
-        padding=True, truncation=True, return_tensors="pt", max_length=512
-    ),
+    input: list[str] | str,
+    *,
+    padding: StrictBool = True,
+    truncation: StrictBool = True,
+    return_tensors: Literal["pt", "np", "tf", "jax", None] = "pt",
+    max_length: int = 512,
+    **tokenizer_kwargs,
 ) -> transformers.BatchEncoding:
     """
     Encodes a list of sentences using a Hugging Face tokenizer.
@@ -130,7 +135,7 @@ def get_tokens(
     ----------
     tokenizer : transformers.AutoTokenizer
         The tokenizer instance from Hugging Face's `transformers` library.
-    input : list or str
+    input : list[str] | str
         A list of sentences to be tokenized.
     tokenizer_kwargs : dict
         Additional keyword arguments to pass to the tokenizer (default is
@@ -141,11 +146,6 @@ def get_tokens(
     transformers.BatchEncoding
         The encoded inputs as a `BatchEncoding` object, suitable for model input.
 
-    Raises
-    ------
-    AssertionError
-        If `input` is not a list of strings or if `tokenizer_kwargs` is not a dictionary.
-
     Examples
     --------
     >>> from transformers import AutoTokenizer
@@ -155,14 +155,17 @@ def get_tokens(
     """
 
     # PRECONDITION CHECKS
-    if not isinstance(input, collections.abc.Iterable):
-        raise TypeError(f"input must be a list of strings {input}")
-    if not isinstance(tokenizer_kwargs, dict):
-        raise TypeError(f"tokenizer_kwargs must be a dict: {tokenizer_kwargs}")
 
     # MAIN FUNCTION
     # get tokens
-    encoded_input = tokenizer(input, **tokenizer_kwargs)
+    encoded_input = tokenizer(
+        input,
+        padding=padding,
+        truncation=truncation,
+        return_tensors=return_tensors,
+        max_length=max_length,
+        **tokenizer_kwargs,
+    )
 
     return encoded_input
 
@@ -267,47 +270,28 @@ class HuggingMapper:
     def __init__(
         self,
         model_name: str = "cambridgeltl/SapBERT-from-PubMedBERT-fulltext",
-        tokenizer_kwargs: dict = dict(
-            padding=True, truncation=True, return_tensors="pt", max_length=512
-        ),
+        *,
         pooling: str = "mean_pooling",
+        padding: StrictBool = True,
+        truncation: StrictBool = True,
+        return_tensors: Literal["pt", "np", "tf", "jax", None] = "pt",
+        max_length: int = 512,
+        **tokenizer_kwargs,
     ):
         # attributes
         self.model_name = model_name
-        self.tokenizer_kwargs = tokenizer_kwargs
-        self.pooling = pooling
+        self.padding = padding
+        self.truncation = truncation
+        self.return_tensors = return_tensors
+        self.max_length = max_length
+        self._tokenizer_kwargs = tokenizer_kwargs
+        self._pooling = pooling
 
         # load tokenizer and model
         print(f"Loading tokenizer for model: {self.model_name}")
         self._tokenizer = transformers.AutoTokenizer.from_pretrained(self.model_name)
         print(f"Loading model: {self.model_name}")
         self._model = transformers.AutoModel.from_pretrained(self.model_name)
-
-    @property
-    def tokenizer_kwargs(self) -> dict:
-        """
-        Returns the tokenizer keyword arguments used for tokenization.
-
-        Returns
-        -------
-        dict
-            The tokenizer keyword arguments.
-        """
-        return self._tokenizer_kwargs
-
-    @tokenizer_kwargs.setter
-    def tokenizer_kwargs(self, value: dict):
-        """
-        Sets the tokenizer keyword arguments used for tokenization.
-
-        Parameters
-        ----------
-        value : dict
-            The tokenizer keyword arguments to set.
-        """
-        if not isinstance(value, dict):
-            raise TypeError(f"tokenizer_kwargs must be a dict: {type(value)}")
-        self._tokenizer_kwargs = value
 
     @property
     def pooling(self) -> str:
@@ -383,7 +367,14 @@ class HuggingMapper:
         """
 
         # tokenize the input text
-        tokenized_input = self._tokenizer(text_input, **self.tokenizer_kwargs)
+        tokenized_input = self._tokenizer(
+            text_input,
+            padding=self.padding,
+            truncation=self.truncation,
+            return_tensors=self.return_tensors,
+            max_length=self.max_length,
+            **self._tokenizer_kwargs,
+        )
 
         # gen embedding
         embedding = get_embeddings(
@@ -442,16 +433,23 @@ class NodeMapper(HuggingMapper):
         text_col: str,
         id_col: str = "id",
         model_name: str = "cambridgeltl/SapBERT-from-PubMedBERT-fulltext",
-        tokenizer_kwargs: dict = dict(
-            padding=True, truncation=True, return_tensors="pt", max_length=512
-        ),
+        *,
         pooling: str = "mean_pooling",
+        padding: StrictBool = True,
+        truncation: StrictBool = True,
+        return_tensors: Literal["pt", "np", "tf", "jax", None] = "pt",
+        max_length: int = 512,
+        **tokenizer_kwargs,
     ):
         # initialize the parent class
         super().__init__(
             model_name,
-            tokenizer_kwargs,
-            pooling,
+            pooling=pooling,
+            padding=padding,
+            truncation=truncation,
+            return_tensors=return_tensors,
+            max_length=max_length,
+            **tokenizer_kwargs,
         )
         # attributes
         self.df = df
@@ -501,7 +499,7 @@ class NodeMapper(HuggingMapper):
                 f"DataFrame must contain columns: {self.id_col}, {self.text_col}"
             )
 
-        return dict(zip(self.df[self.id_col], self.df[self.text_col]))
+        return dict(zip(self.df[self.id_col], self.df[self.text_col], strict=True))
 
     def __embed_mapping(self) -> dict:
         """
