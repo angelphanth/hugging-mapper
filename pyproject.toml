@@ -84,20 +84,12 @@ dependencies = [
 [tool.setuptools.packages.find]
 include = ["hugger*"]
 
-# # add dependencies here: (use one of the two)
-# dependencies = ["numpy", "pandas", "scipy", "matplotlib", "seaborn"]
-# use requirements.txt instead of pyproject.toml for dependencies
-# https://stackoverflow.com/a/73600610/9684872
-# [tool.setuptools.dynamic]
-# dependencies = {file = ["requirements.txt"]}
-
-
 [project.urls]
 "Bug Tracker" = "https://github.com/angelphanth/hugging-mapper/issues"
 "Homepage" = "https://github.com/angelphanth/hugging-mapper"
 
 [project.optional-dependencies]
-# Optional dependencies to locally build the documentation, also used for 
+# Optional dependencies to locally build the documentation, also used for
 # readthedocs.
 docs = [
   "sphinx",
@@ -110,17 +102,25 @@ docs = [
 # local development options
 dev = ["black", "ruff", "pytest", "ipykernel", "openpyxl", "pre-commit"]
 
-# Configure the Ruff linter: Ignore error number 501
-[tool.ruff]
-lint.ignore = ["E501"]
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+force_grid_wrap = 2
+include_trailing_comma = true
+use_parentheses = true
+
+[tool.ruff.lint]
+# https://docs.astral.sh/ruff/tutorial/#rule-selection
+extend-select = ["E", "W", "F", "B"]
+ignore = ["E501"]  # ignore line length for now
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules"
 
 [build-system]
 build-backend = "setuptools.build_meta"
 requires = ["setuptools>=64", "setuptools_scm>=8"]
 
 [tool.setuptools_scm]
-# https://setuptools-scm.readthedocs.io/ 
+# https://setuptools-scm.readthedocs.io/
 # used to pick up the version from the git tags or the latest commit.
-
-[tool.isort]
-profile = "black"
