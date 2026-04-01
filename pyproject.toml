@@ -93,8 +93,8 @@ include = ["hugger*"]
 
 
 [project.urls]
-"Bug Tracker" = "https://github.com/angelphanth/hugger/issues"
-"Homepage" = "https://github.com/angelphanth/hugger"
+"Bug Tracker" = "https://github.com/angelphanth/hugging-mapper/issues"
+"Homepage" = "https://github.com/angelphanth/hugging-mapper"
 
 [project.optional-dependencies]
 # Optional dependencies to locally build the documentation, also used for 
@@ -108,7 +108,7 @@ docs = [
   "jupytext",
 ]
 # local development options
-dev = ["black", "ruff", "pytest", "ipykernel", "openpyxl"]
+dev = ["black", "ruff", "pytest", "ipykernel", "openpyxl", "pre-commit"]
 
 # Configure the Ruff linter: Ignore error number 501
 [tool.ruff]
