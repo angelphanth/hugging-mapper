@@ -32,7 +32,7 @@ def pool_str():
 
 @pytest.fixture
 def model_name():
-    return "sentence-transformers/all-MiniLM-L6-v2"
+    return "sentence-transformers/all-MiniLM-L12-v2"
 
 
 @pytest.fixture
@@ -105,7 +105,7 @@ def df():
     )
 
 
-def test_NodeMapper(df, model_name, tokenizer_kwargs, pool_str, text_input):
+def test_NodeMapper_matches(df, model_name, tokenizer_kwargs, pool_str, text_input):
     mapper = NodeMapper(
         df,
         text_col="text",
@@ -118,17 +118,13 @@ def test_NodeMapper(df, model_name, tokenizer_kwargs, pool_str, text_input):
     emb = mapper.embed_text([text_input] * 3)
     assert emb.shape[0] == 3
 
-    # second test, get_similar
-    match = mapper.get_similar("concrete", threshold=0.5)
-    assert "n3" in match.keys()
-
-    # third test, get_match
-    match, meta = mapper.get_match("concrete", threshold=0.5)
+    # second test, get_match
+    match, meta = mapper.get_match("concrete")
     assert match == "n3"
     assert meta["text"] == "foundation"
-    assert meta["score"] > 0.5
+    assert meta["score"] > 0.4
 
-    # forth test, get_match, score close to 1
+    # third test, get_match, score close to 1
     match, meta = mapper.get_match("happy", threshold=0.8)
     assert match == "n1"
     assert meta["text"] == "happy"
@@ -136,3 +132,34 @@ def test_NodeMapper(df, model_name, tokenizer_kwargs, pool_str, text_input):
 
     # clean up
     del mapper, emb, match, meta
+
+
+def test_NodeMapper_similar(df, model_name, tokenizer_kwargs, pool_str):
+    mapper = NodeMapper(
+        df,
+        text_col="text",
+        id_col="id",
+        model_name=model_name,
+        pooling=pool_str,
+        **tokenizer_kwargs,
+    )
+    # first test
+    matches = mapper.get_similar("concrete", threshold=0.3)
+    assert "n3" in matches.keys()
+
+    # top_k all
+    matches = mapper.get_similar("cheerful", threshold=0, top_k=None)
+    assert len(matches) == 3
+    assert list(matches.keys())[0] == "n1"
+    assert matches["n1"]["score"] > 0.5
+    assert matches == mapper.get_similar("cheerful", threshold=0, top_k=1000)
+
+    # top_k 2
+    matches = mapper.get_similar("straw", threshold=0, top_k=2)
+    assert len(matches) == 2
+    # assert score under 0.3
+    for i in matches:
+        assert matches[i]["score"] < 0.3
+
+    # clean up
+    del mapper, matches

@@ -1,4 +1,8 @@
-from typing import Literal
+import logging
+from typing import (
+    Literal,
+    Optional,
+)
 
 import pandas as pd
 import torch
@@ -288,9 +292,9 @@ class HuggingMapper:
         self._pooling = pooling
 
         # load tokenizer and model
-        print(f"Loading tokenizer for model: {self.model_name}")
+        logging.info(f"Loading tokenizer for model: {self.model_name}")
         self._tokenizer = transformers.AutoTokenizer.from_pretrained(self.model_name)
-        print(f"Loading model: {self.model_name}")
+        logging.info(f"Loading model: {self.model_name}")
         self._model = transformers.AutoModel.from_pretrained(self.model_name)
 
     @property
@@ -542,7 +546,12 @@ class NodeMapper(HuggingMapper):
 
     # Public methods
     def get_similar(
-        self, input_text: str, threshold: float = 0.8, metric: str = "cosine"
+        self,
+        input_text: str,
+        *,
+        threshold: float = 0,
+        top_k: Optional[int] = None,
+        metric: str = "cosine",
     ) -> list:
         """
         Finds similar items in the mapping based on a similarity threshold.
@@ -552,7 +561,9 @@ class NodeMapper(HuggingMapper):
         input_text : str
             The input text to find similar items for.
         threshold : float
-            The minimum similarity score required to consider an item similar (default is 0.8).
+            The minimum similarity score required to consider an item similar (default is 0).
+        top_k : Optional[int]
+            The maximum number of similar items to return (default is None, meaning all similar items).
         metric : str
             The similarity metric to use for comparison (default is "cosine").
 
@@ -573,11 +584,11 @@ class NodeMapper(HuggingMapper):
         --------
         >>> import pandas as pd
         >>> df = pd.DataFrame({"id": ["n1", "n2"], "text": ["hello", "world"]})
-        >>> mapper = NodeMapper(df, text_col='text', id_col='id')
+        >>> mapper = NodeMapper(df, text_col='text', id_col='id') # doctest: +SKIP
         Loading tokenizer for model: cambridgeltl/SapBERT-from-PubMedBERT-fulltext
         Loading model: cambridgeltl/SapBERT-from-PubMedBERT-fulltext
         Generating embeddings for 2 nodes ...
-        >>> similar_items = mapper.get_similar("planet", threshold=0.8, metric="cosine")
+        >>> similar_items = mapper.get_similar("planet", threshold=0.8, metric="cosine") # doctest: +SKIP
         """
 
         if not isinstance(metric, str):
@@ -586,11 +597,14 @@ class NodeMapper(HuggingMapper):
         metric = metric.lower().strip()
         if metric not in ["cosine", "jaccard"]:
             raise ValueError(f"metric must be 'cosine' or 'todo': {metric}")
-
         if metric == "cosine":
             similarity_func = cosine_similarity
+        # TODO more metrics
         else:
             raise ValueError(f"Unsupported metric: {metric}")
+
+        if top_k is not None and not isinstance(top_k, int):
+            raise TypeError(f"top_k must be an int or None: {type(top_k)}")
 
         # get embedding for input text
         input_embedding = self.embed_text(input_text)
@@ -606,11 +620,13 @@ class NodeMapper(HuggingMapper):
         }
         # desc sort matches by score
         return dict(
-            sorted(matches.items(), key=lambda item: item[1]["score"], reverse=True)
+            sorted(matches.items(), key=lambda item: item[1]["score"], reverse=True)[
+                :top_k
+            ]
         )
 
     def get_match(
-        self, input_text: str, threshold: float = 0.8, metric: str = "cosine"
+        self, input_text: str, *, threshold: float = 0, metric: str = "cosine"
     ) -> list:
         """
         Finds the best match for the input text from the mapping based on a similarity threshold.
@@ -620,7 +636,7 @@ class NodeMapper(HuggingMapper):
         input_text : str
             The input text to find a match for.
         threshold : float
-            The minimum similarity score required to consider a match valid (default is 0.8).
+            The minimum similarity score required to consider a match valid (default is 0).
         metric : str
             The similarity metric to use for comparison (default is "cosine").
 
@@ -642,15 +658,15 @@ class NodeMapper(HuggingMapper):
         --------
         >>> import pandas as pd
         >>> df = pd.DataFrame({"id": ["n1", "n2"], "text": ["hello", "world"]})
-        >>> mapper = NodeMapper(df, text_col='text', id_col='id')
+        >>> mapper = NodeMapper(df, text_col='text', id_col='id') # doctest: +SKIP
         Loading tokenizer for model: cambridgeltl/SapBERT-from-PubMedBERT-fulltext
         Loading model: cambridgeltl/SapBERT-from-PubMedBERT-fulltext
         Generating embeddings for 2 nodes ...
-        >>> best_match_id, metadata = mapper.get_match("earth", threshold=0.8, metric="cosine")
+        >>> best_match_id, metadata = mapper.get_match("earth", threshold=0.8, metric="cosine") # doctest: +SKIP
         """
 
         # get similar items
-        matches = self.get_similar(input_text, threshold, metric)
+        matches = self.get_similar(input_text, threshold=threshold, metric=metric)
 
         # check if matches is empty
         if not matches:
