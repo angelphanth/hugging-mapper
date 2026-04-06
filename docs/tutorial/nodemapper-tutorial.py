@@ -6,24 +6,28 @@
 # Start by importing `NodeMapper`
 
 # %%
+# An example dataframe
+import pandas as pd
+
+# %%
 # from hugger import *
 from hugger.mapper import NodeMapper
 
 # %% [markdown]
 # Demo data for the tutorial
 
-# %%
-# An example dataframe
-import pandas as pd
 
 # generate data
-ids = ["id1", "id2", "id3", "id4", "id5"]
+ids = ["id1", "id2", "id3", "id4", "id5", "id6", "id7", "id8"]
 texts = [
-    "happy",
-    "doughnut",
-    "green",
-    "sad",
-    "foundation",
+    "They are happy",
+    "I would like to order a doughnut",
+    "The grass is green",
+    "They are sad",
+    "Have you poured the foundation?",
+    "I am feeling grey",
+    "blue",
+    "home",
 ]
 # to dataframe
 df = pd.DataFrame({"id": ids, "text": texts})
@@ -64,6 +68,11 @@ mapper.get_similar("concrete", threshold=0)  # threshold 0 returns all
 
 # %%
 # retrieve top match, above threshold
-print(mapper.get_match("joyful", threshold=0.5), "\n")
-print(mapper.get_match("concrete", threshold=0.5), "\n")
-print(mapper.get_match("donut", threshold=0.5), "\n")
+print(mapper.get_match("joyful", threshold=0.4), "\n")
+print(mapper.get_match("we are crying", threshold=0.4), "\n")
+print(mapper.get_match("eatting a donut", threshold=0.4), "\n")
+
+# %%
+# retrieve top k matches, above threshold
+print(mapper.get_similar("yellow", threshold=0.3, top_k=2), "\n")
+print(mapper.get_similar("laughter", top_k=3), "\n")
