@@ -1,6 +1,14 @@
 # %% [markdown]
 # # NodeMapper tutorial
 #
+# [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/angelphanth/hugging-mapper/blob/main/docs/tutorial/nodemapper-tutorial.ipynb)
+#
+
+# %%
+# uncomment if colab
+# #!pip install pandas hugging-mapper
+
+# %% [markdown]
 # Returning node ids based on similarity of text embeddings.
 #
 # Start by importing `NodeMapper`
@@ -10,7 +18,6 @@
 import pandas as pd
 
 # %%
-# from hugger import *
 from hugger.mapper import NodeMapper
 
 # %% [markdown]

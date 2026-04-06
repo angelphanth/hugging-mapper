@@ -1,12 +1,19 @@
 # %% [markdown]
 # # HuggingMapper tutorial
 #
+# [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/angelphanth/hugging-mapper/blob/main/docs/tutorial/huggingmapper-tutorial.ipynb)
+
+# %%
+# uncomment if colab
+# #!pip install pandas hugging-mapper
+
+# %% [markdown]
+#
 # Getting Embeddings.
 #
 # Start by importing `HuggingMapper`
 
 # %%
-# from hugger import *
 from hugger.mapper import HuggingMapper
 
 # %% [markdown]
