@@ -12,6 +12,7 @@
 
 tutorial/huggingmapper-tutorial
 tutorial/nodemapper-tutorial
+tutorial/biome-tagging
 ```
 
 ```{toctree}
