@@ -241,25 +241,39 @@ def get_embeddings(
 class HuggingMapper:
     """
     A class for mapping text to embeddings using a Hugging Face model.
+
     This class provides methods to load a pre-trained model and tokenizer, embed text,
     and configure pooling methods for generating embeddings.
 
     Parameters
     ----------
-    model_name : str
+    model_name : str, optional
         The name of the pre-trained model to be used for generating embeddings (default is "cambridgeltl/SapBERT-from-PubMedBERT-fulltext").
-    tokenizer_kwargs : dict
-        Additional keyword arguments to be passed to the tokenizer (default is
-        `{'padding': True, 'truncation': True, 'return_tensors': 'pt', 'max_length': 512}`).
-    pooling : str
-        The pooling method to be used for generating embeddings (default is "mean_pooling").
+    pooling : str, optional
+        The pooling method to be used for generating embeddings ("mean_pooling" or "attention_pooling", default is "mean_pooling").
+    padding : bool, optional
+        Whether to pad sequences to the same length (default is True).
+    truncation : bool, optional
+        Whether to truncate sequences to the maximum length (default is True).
+    return_tensors : str or None, optional
+        The type of tensors to return ("pt", "np", "tf", "jax", or None, default is "pt").
+    max_length : int, optional
+        The maximum sequence length (default is 512).
+    **tokenizer_kwargs
+        Additional keyword arguments to be passed to the tokenizer.
 
     Attributes
     ----------
     model_name : str
         The name of the pre-trained model.
-    tokenizer_kwargs : dict
-        The keyword arguments used for tokenization.
+    padding : bool
+        Padding option for tokenization.
+    truncation : bool
+        Truncation option for tokenization.
+    return_tensors : str or None
+        The type of tensors returned by the tokenizer.
+    max_length : int
+        Maximum sequence length for tokenization.
     pooling : str
         The pooling method used for generating embeddings.
     tokenizer : transformers.AutoTokenizer
@@ -393,24 +407,33 @@ class HuggingMapper:
 class NodeMapper(HuggingMapper):
     """
     A class for mapping nodes to their corresponding text embeddings using a Hugging Face model.
-    This class extends the HuggingMapper class to handle a DataFrame containing node IDs and their associated text.
-    It provides methods to generate embeddings for each node and find similar nodes based on a given input text.
+
+    This class extends HuggingMapper to handle a pandas DataFrame containing node IDs and their associated text.
+    It provides methods to generate embeddings for each node, find similar nodes based on a given input text,
+    and visualize embeddings.
 
     Parameters
     ----------
     df : pandas.DataFrame
-        A DataFrame containing the node IDs and their corresponding text.
+        DataFrame containing the node IDs and their corresponding text.
     text_col : str
         The name of the column in the DataFrame that contains the text to be embedded.
-    id_col : str
+    id_col : str, optional
         The name of the column in the DataFrame that contains the node IDs (default is "id").
-    model_name : str
+    model_name : str, optional
         The name of the pre-trained model to be used for generating embeddings (default is "cambridgeltl/SapBERT-from-PubMedBERT-fulltext").
-    tokenizer_kwargs : dict
-        Additional keyword arguments to be passed to the tokenizer (default is
-        `{'padding': True, 'truncation': True, 'return_tensors': 'pt', 'max_length': 512}`).
-    pooling : str
-        The pooling method to be used for generating embeddings (default is "mean_pooling").
+    pooling : str, optional
+        The pooling method to be used for generating embeddings ("mean_pooling" or "attention_pooling", default is "mean_pooling").
+    padding : bool, optional
+        Whether to pad sequences to the same length (default is True).
+    truncation : bool, optional
+        Whether to truncate sequences to the maximum length (default is True).
+    return_tensors : str or None, optional
+        The type of tensors to return ("pt", "np", "tf", "jax", or None, default is "pt").
+    max_length : int, optional
+        The maximum sequence length (default is 512).
+    **tokenizer_kwargs
+        Additional keyword arguments to be passed to the tokenizer.
 
     Attributes
     ----------
@@ -427,10 +450,16 @@ class NodeMapper(HuggingMapper):
 
     Methods
     -------
-    get_similar(input_text: str, threshold: float = 0.8, metric: str = "cosine") -> dict
+    get_similar(input_text: str, threshold: float = 0, top_k: Optional[int] = None, metric: str = "cosine") -> dict
         Finds similar items in the mapping based on a similarity threshold.
-    get_match(input_text: str, threshold: float = 0.8, metric: str = "cosine") -> tuple
+    get_match(input_text: str, threshold: float = 0, metric: str = "cosine") -> tuple
         Finds the best match for the input text from the mapping based on a similarity threshold.
+    to_numpy() -> dict
+        Converts the mapping embeddings to a dictionary of NumPy arrays.
+    plot_tsne(random_state: int = 42, title: str = "t-SNE of Node Embeddings", labels: Optional[dict] = None, tsne_kwargs: Optional[dict] = None, px_scatter_kwargs: Optional[dict] = None)
+        Visualizes the node embeddings using t-SNE and Plotly.
+    embeddings_df : pandas.DataFrame
+        Returns a DataFrame containing the node IDs and their corresponding embeddings.
     """
 
     def __init__(
