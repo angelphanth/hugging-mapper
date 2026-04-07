@@ -23,7 +23,7 @@
 </p>
 
 
-## Table of Contents :bookmark_tabs:
+## Table of Contents
 
 - [Installation](#installation)
 - [Features](#features)
@@ -84,7 +84,7 @@ node_id, metadata = node_mapper.get_match("genetics", threshold=0.7)
 
 ## Documentation 
 
-Tutorials and documentation are available on [Read the Docs](https://hugging-mapper.readthedocs.io/) :notebook_with_decorative_cover::grinning:
+Tutorials and documentation are available on [Read the Docs](https://hugging-mapper.readthedocs.io/) :) 
 
 ## License
 
