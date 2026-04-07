@@ -5,10 +5,12 @@ from typing import (
 )
 
 import pandas as pd
+import plotly.express as px
 import torch
 import torch.nn.functional as F
 import transformers
 from pydantic import StrictBool
+from sklearn.manifold import TSNE
 from sklearn.metrics.pairwise import cosine_similarity
 
 
@@ -488,6 +490,19 @@ class NodeMapper(HuggingMapper):
         """
         return self._mapping_embeddings
 
+    @property
+    def embeddings_df(self) -> pd.DataFrame:
+        """
+        Returns a DataFrame containing the node IDs and their corresponding embeddings.
+        The DataFrame is constructed from the mapping of node IDs to their embeddings, with the node IDs as the index.
+
+        Returns
+        -------
+        pandas.DataFrame
+            A DataFrame where the index consists of node IDs and the columns contain the corresponding embeddings.
+        """
+        return pd.DataFrame.from_dict(self.to_numpy(), orient="index")
+
     # Helper methods
     def __get_mapping(self) -> dict:
         """
@@ -675,3 +690,55 @@ class NodeMapper(HuggingMapper):
             # return top match only
             top_key = list(matches.keys())[0]
             return top_key, matches[top_key]
+
+    def to_numpy(self):
+        """
+        Converts the mapping embeddings to a NumPy array.
+
+        Returns
+        -------
+        dict
+            A dictionary where keys are node IDs and values are the corresponding embeddings as NumPy arrays.
+        """
+        return {k: v[0].numpy() for k, v in self.mapping_embeddings.items()}
+
+    def plot_tsne(
+        self,
+        random_state: int = 42,
+        title: str = "t-SNE of Node Embeddings",
+        labels: Optional[dict] = None,
+        tsne_kwargs: Optional[dict] = None,
+        px_scatter_kwargs: Optional[dict] = None,
+    ):
+        """
+        Quick t-SNE visualization of the node embeddings.
+
+        Parameters
+        ----------
+        random_state : int
+            The random seed for reproducibility (default is 42).
+        title: str
+            The title of the plot (default is "t-SNE of Node Embeddings").
+        labels : Optional[dict]
+            A dictionary mapping node IDs to labels for the plot.
+            If none, the axes will be labeled as "t-SNE 1" and "t-SNE 2" (default is None).
+        tsne_kwargs : Optional[dict]
+            Additional keyword arguments to pass to the TSNE constructor (default is None).
+        px_scatter_kwargs : Optional[dict]
+            Additional keyword arguments to pass to the Plotly Express scatter function (default is None).
+        """
+        # init tsne
+        tsne = TSNE(n_components=2, random_state=random_state, **(tsne_kwargs or {}))
+        # fit to embeddings
+        emb_tsne = tsne.fit_transform(self.embeddings_df)
+
+        # plot
+        fig_tsne = px.scatter(
+            x=emb_tsne[:, 0],
+            y=emb_tsne[:, 1],
+            hover_name=self.df[self.text_col].values,
+            title=title,
+            labels=labels or {"x": "t-SNE 1", "y": "t-SNE 2"},
+            **(px_scatter_kwargs or {}),
+        )
+        fig_tsne.show()
