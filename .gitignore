@@ -30,3 +30,4 @@ _templates
 
 # ignore more stuff
 .venv
+*.env
